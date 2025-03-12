@@ -1063,7 +1063,7 @@ def display_structured_translation(variants, direction="ru_to_es"):
     """
     st.subheader("Варианты перевода:")
     
-    for i, variant in enumerate(variants):
+    for variant_idx, variant in enumerate(variants):
         # Создаем контейнер для каждого варианта
         variant_container = st.container()
         
@@ -1089,9 +1089,25 @@ def display_structured_translation(variants, direction="ru_to_es"):
                 padding-left: 10px;
                 font-style: italic;
             }
+            
             .variant-examples {
                 border-left: 3px solid #2196F3;
                 padding-left: 10px;
+            }
+            
+            /* Стили для примеров предложений */
+            .example-block {
+                margin-bottom: 15px; /* Отступ между блоками пример-перевод */
+            }
+            
+            .example-sentence {
+                margin-bottom: 4px; /* Маленький отступ между предложением и его переводом */
+            }
+            
+            .example-translation {
+                color: #666; /* Бледный цвет для перевода */
+                font-style: italic; /* Курсив для перевода */
+                margin-bottom: 0; /* Нет отступа снизу для перевода */
             }
             </style>
             """, unsafe_allow_html=True)
@@ -1105,10 +1121,71 @@ def display_structured_translation(variants, direction="ru_to_es"):
             # Отображаем комментарий через st.markdown
             st.markdown(f"<div class='variant-comment'>{variant['comment']}</div>", unsafe_allow_html=True)
             
-            # Отображаем примеры через st.markdown для правильной обработки жирного шрифта
-            # Используем markdown вместо HTML для корректного отображения жирного текста
+            # Отображаем примеры с улучшенным форматированием
             st.markdown("<div class='variant-examples'>", unsafe_allow_html=True)
-            st.markdown(variant['examples'])
+            
+            # Обрабатываем примеры, разделяя их на предложения и переводы
+            example_lines = variant['examples'].strip().split('\n')
+            
+            # Удаляем пустые строки и убираем маркеры списка
+            example_lines = [line[2:] if line.startswith('- ') else line for line in example_lines if line.strip()]
+            
+            # Разная обработка для ru_to_es и es_to_ru
+            if direction == "ru_to_es":
+                # Для ru_to_es согласно промпту формат следующий:
+                # - Пример предложения 1 с **вариантом 1** (на испанском)
+                # - Пример предложения 2 с **вариантом 1** (на испанском)
+                # - Русский перевод примера 1
+                # - Русский перевод примера 2
+                
+                # Определяем половину списка - сначала идут испанские примеры, потом русские переводы
+                num_examples = len(example_lines) // 2
+                
+                # Проходим по каждому испанскому примеру и его русскому переводу
+                for i in range(num_examples):
+                    if i < num_examples and i + num_examples < len(example_lines):
+                        # Получаем испанский пример и его русский перевод
+                        spanish_example = example_lines[i]
+                        russian_translation = example_lines[i + num_examples]
+                        
+                        # Блок примера
+                        st.write("<div class='example-block'>", unsafe_allow_html=True)
+                        
+                        # Используем markdown для испанского примера, чтобы обработать жирный шрифт
+                        st.markdown(f"{spanish_example}", unsafe_allow_html=False)
+                        
+                        # Используем markdown для русского перевода с CSS-стилями
+                        st.markdown(f"<div class='example-translation'>{russian_translation}</div>", unsafe_allow_html=True)
+                        
+                        # Завершаем блок примера
+                        st.write("</div>", unsafe_allow_html=True)
+            else:
+                # Для es_to_ru формат: пример-перевод, пример-перевод...
+                i = 0
+                while i < len(example_lines):
+                    if i + 1 < len(example_lines):
+                        example = example_lines[i]
+                        translation = example_lines[i + 1]
+                        
+                        # Блок примера
+                        st.write("<div class='example-block'>", unsafe_allow_html=True)
+                        
+                        # Используем markdown для примера на испанском
+                        st.markdown(example)
+                        
+                        # Используем HTML для стилизации перевода на русский
+                        st.markdown(f"<div class='example-translation'>{translation}</div>", unsafe_allow_html=True)
+                        
+                        # Завершаем блок примера
+                        st.write("</div>", unsafe_allow_html=True)
+                        
+                        # Переходим к следующей паре
+                        i += 2
+                    else:
+                        # Если осталась одна строка без пары
+                        st.markdown(example_lines[i])
+                        i += 1
+            
             st.markdown("</div>", unsafe_allow_html=True)
             
             # Для направления русский-испанский отображаем кнопки копирования и озвучивания
@@ -1122,11 +1199,15 @@ def display_structured_translation(variants, direction="ru_to_es"):
                     
                 with action_cols[1]:
                     # Кнопка для копирования только текста перевода (без комментариев и примеров)
-                    st.button("📋", key=f"copy_variant_{i}", help="Копировать этот вариант")
+                    # Используем уникальный ключ, комбинируя номер варианта и индекс
+                    unique_key = f"copy_variant_{variant['number']}_{variant_idx}"
+                    st.button("📋", key=unique_key, help="Копировать этот вариант")
                     
                 with action_cols[2]:
                     # Кнопка для озвучивания только текста перевода
-                    if st.button("🔊", key=f"speak_variant_{i}", help="Озвучить этот вариант"):
+                    # Также используем уникальный ключ
+                    speak_key = f"speak_variant_{variant['number']}_{variant_idx}"
+                    if st.button("🔊", key=speak_key, help="Озвучить этот вариант"):
                         text_to_speech(variant['text'])
     
     # Для поддержки копирования вариантов перевода из вариантов - только для ru_to_es
