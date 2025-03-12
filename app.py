@@ -18,6 +18,251 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
+# Базовые стили без скрытия элементов Streamlit
+st.markdown("""
+<style>
+/* Убираем стандартные элементы управления Streamlit в правом верхнем углу */
+#MainMenu {visibility: hidden !important;}
+.stDeployButton {display: none !important;}
+[data-testid="stToolbar"] {visibility: hidden !important;}
+.viewerBadge_container__1QSob {display: none !important;}
+
+/* Экстремальное удаление отступов для поднятия содержимого вверх */
+.main .block-container {
+    padding-top: 0 !important;
+    padding-right: 1rem !important;
+    padding-left: 1rem !important;
+    max-width: 100% !important;
+    margin-top: -3rem !important;
+}
+
+/* Убираем отступы у всех блоков */
+.stApp > header {
+    display: none !important;
+}
+
+/* Убираем отступы у текстовых полей сверху */
+.stTextArea, .stTextInput {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* Уменьшаем отступы у label текстовых полей */
+.stTextArea label, .stTextInput label {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+    font-size: 0.8rem !important;
+    line-height: 1 !important;
+}
+
+/* Убираем все отступы у всех элементов */
+div[data-testid="stVerticalBlock"] > div {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* Убираем отступы у всех контейнеров */
+.element-container {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Все элементы поднимаем вверх */
+.st-emotion-cache-1y4p8pa {
+    padding-top: 0 !important;
+    margin-top: -2rem !important;
+}
+
+/* Убираем все отступы сверху у всех возможных контейнеров */
+.stApp, 
+.main,
+.block-container, 
+.css-1d391kg,
+.css-18e3th9,
+.css-1wyom9d,
+.stApp > div:first-child,
+.stApp > div > div:first-child,
+.stApp > div > div > div:first-child,
+div[data-testid="stAppViewContainer"],
+div[data-testid="stAppViewContainer"] > div,
+div[data-testid="stAppViewContainer"] > div > div,
+div[data-testid="stVerticalBlock"],
+div[data-testid="stHorizontalBlock"] {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* Стили для мобильных устройств */
+@media only screen and (max-width: 768px) {
+    .stTextInput input, .stSelectbox, .stTextArea textarea {
+        width: 100% !important;
+    }
+    .stButton button {
+        width: 100% !important;
+    }
+}
+
+/* Стили для элементов перевода */
+.translation-result {
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    padding: 15px;
+    margin-top: 15px;
+    background-color: #f9f9f9;
+}
+
+/* Стили для индикатора режима в правом верхнем углу */
+.mode-indicator {
+    position: fixed;
+    top: 0.5rem;
+    right: 1rem;
+    padding: 0.25rem 0.75rem;
+    background-color: #e8ecef;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    z-index: 1000;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Добавляем библиотеку Toastify для уведомлений
+st.markdown("""
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+""", unsafe_allow_html=True)
+
+# Добавляем JavaScript для функций копирования и озвучивания
+st.markdown("""
+<script>
+// Функция для копирования текста из результата перевода
+function copyTranslationText(btn) {
+    const resultDiv = document.querySelector('.translation-result');
+    if (resultDiv) {
+        const text = resultDiv.innerText || resultDiv.textContent;
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                // Показываем уведомление
+                Toastify({
+                    text: "Скопировано!",
+                    duration: 2000,
+                    close: false,
+                    gravity: "bottom",
+                    position: "center",
+                    stopOnFocus: true,
+                    style: {
+                        background: "linear-gradient(to right, #00b09b, #96c93d)",
+                    }
+                }).showToast();
+            })
+            .catch(err => {
+                console.error("Ошибка при копировании: ", err);
+            });
+    }
+}
+
+// Функция для озвучивания текста
+function speakText(text) {
+    if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(utterance);
+        
+        // Показываем уведомление
+        Toastify({
+            text: "Озвучиваю текст...",
+            duration: 2000,
+            close: false,
+            gravity: "bottom",
+            position: "center",
+            stopOnFocus: true,
+            style: {
+                background: "linear-gradient(to right, #00b09b, #96c93d)",
+            }
+        }).showToast();
+    } else {
+        alert("Ваш браузер не поддерживает функцию озвучивания текста");
+    }
+}
+
+// Функция для настройки всех кнопок копирования
+function setupCopyButtons() {
+    // Ищем все кнопки копирования 
+    const copyButtons = document.querySelectorAll('button:has(div:contains("📋"))');
+    copyButtons.forEach(button => {
+        if (!button.hasAttribute('data-copy-listener')) {
+            button.setAttribute('data-copy-listener', 'true');
+            button.addEventListener('click', function(e) {
+                copyTranslationText(this);
+            });
+        }
+    });
+}
+
+// Функция для настройки всех кнопок озвучивания
+function setupSpeakButtons() {
+    // Ищем все кнопки озвучивания
+    const speakButtons = document.querySelectorAll('button:has(div:contains("🔊"))');
+    speakButtons.forEach(button => {
+        if (!button.hasAttribute('data-speak-listener')) {
+            button.setAttribute('data-speak-listener', 'true');
+            button.addEventListener('click', function(e) {
+                const translationElement = this.closest('.stButton').previousElementSibling;
+                if (translationElement) {
+                    const text = translationElement.textContent.trim();
+                    if (text) {
+                        speakText(text);
+                    }
+                }
+            });
+        }
+    });
+}
+
+// Настраиваем MutationObserver для отслеживания добавления новых кнопок
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.addedNodes.length) {
+            setupCopyButtons();
+            setupSpeakButtons();
+        }
+    });
+});
+
+// Наблюдаем за всеми изменениями в DOM
+observer.observe(document.body, { childList: true, subtree: true });
+
+// Вызываем функции настройки при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    setupCopyButtons();
+    setupSpeakButtons();
+});
+</script>
+""", unsafe_allow_html=True)
+
+# Добавляем скрипт для динамического удаления отступов после загрузки страницы
+st.markdown("""
+<script>
+// Функция для динамического удаления всех отступов сверху после загрузки страницы
+document.addEventListener('DOMContentLoaded', function() {
+    // Находим все контейнеры и удаляем у них отступы
+    const allElements = document.querySelectorAll('div');
+    allElements.forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (parseInt(style.paddingTop) > 0 || parseInt(style.marginTop) > 0) {
+            el.style.paddingTop = '0px';
+            el.style.marginTop = '0px';
+        }
+    });
+    
+    // Особое внимание к первому текстовому полю - делаем отрицательный отступ
+    const firstTextArea = document.querySelector('.stTextArea');
+    if (firstTextArea) {
+        firstTextArea.style.marginTop = '-1rem';
+    }
+});
+</script>
+""", unsafe_allow_html=True)
+
 # Проверяем наличие прокси и удаляем его, если он установлен
 if 'https_proxy' in os.environ:
     del os.environ['https_proxy']
@@ -99,13 +344,6 @@ st.markdown("""
     .stButton button {
         width: 100%;
     }
-    @media (max-width: 640px) {
-        .main .block-container {
-            padding-left: 1rem;
-            padding-right: 1rem;
-            padding-top: 1rem;
-        }
-    }
     /* Стиль для кнопок в header */
     .header-button {
         margin-right: 10px;
@@ -118,94 +356,11 @@ st.markdown("""
         cursor: pointer;
         border-radius: 4px;
     }
-    /* Стиль для результатов перевода */
-    .translation-result {
-        background-color: #f0f2f6;
-        padding: 15px;
-        border-radius: 5px;
-        margin-top: 15px;
-        margin-bottom: 15px;
-    }
     /* Стиль для кнопок действий */
     .action-button {
         margin-right: 5px;
     }
 </style>
-
-<script>
-// Функция для копирования текста в буфер обмена
-function copyTextToClipboard(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-        // Для современных браузеров
-        navigator.clipboard.writeText(text).then(() => {
-            console.log('Текст скопирован в буфер обмена');
-        }).catch(err => {
-            console.error('Ошибка при копировании текста:', err);
-        });
-    } else {
-        // Для старых браузеров
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-            document.execCommand('copy');
-            console.log('Текст скопирован в буфер обмена (fallback)');
-        } catch (err) {
-            console.error('Ошибка при копировании текста:', err);
-        }
-        
-        document.body.removeChild(textArea);
-    }
-}
-
-// Функция для вставки текста из буфера обмена
-async function pasteFromClipboard(targetId) {
-    try {
-        const text = await navigator.clipboard.readText();
-        const targetElement = document.getElementById(targetId);
-        if (targetElement) {
-            targetElement.value = text;
-            // Вызываем событие изменения для обновления значения в streamlit
-            const event = new Event('input', { bubbles: true });
-            targetElement.dispatchEvent(event);
-        }
-    } catch (err) {
-        console.error('Ошибка при вставке текста из буфера обмена:', err);
-    }
-}
-
-// Настройка обработчиков событий для кнопок копирования/вставки
-document.addEventListener('DOMContentLoaded', function() {
-    // Прокси для обработки динамически добавляемых элементов
-    document.body.addEventListener('click', function(event) {
-        const target = event.target;
-        
-        // Проверяем, является ли цель кнопкой копирования
-        if (target.closest('button') && target.textContent.includes('Копировать')) {
-            // Находим ближайший блок с результатом перевода
-            const resultBlock = target.closest('div').previousElementSibling.querySelector('.translation-result');
-            if (resultBlock) {
-                copyTextToClipboard(resultBlock.textContent);
-            }
-        }
-        
-        // Проверяем, является ли цель кнопкой вставки
-        if (target.closest('button') && target.textContent.includes('📋') && !target.textContent.includes('Копировать')) {
-            // Находим ближайшее текстовое поле
-            const textArea = target.closest('div').previousElementSibling.querySelector('textarea');
-            if (textArea) {
-                pasteFromClipboard(textArea.id);
-            }
-        }
-    });
-});
-</script>
 """, unsafe_allow_html=True)
 
 # Получение API ключей
@@ -498,43 +653,8 @@ def text_to_speech(text):
         st.error(f"Ошибка при генерации аудио: {str(e)}")
         return None
 
-# Функция для отображения заголовка с кнопками навигации
-def display_header():
-    st.title("🌐 AI Переводчик | Испанский ⟷ Русский")
-
-    # Отображение информации о модели
-    if successful_claude_model:
-        st.info(f"Используется модель: {successful_claude_model}")
-    
-    # Создаем 4 колонки для кнопок навигации
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        if st.button("🇪🇸 → 🇷🇺", help="Перевод с испанского на русский", use_container_width=True):
-            st.session_state.current_screen = "es_to_ru"
-            st.rerun()
-            
-    with col2:
-        if st.button("🇷🇺 → 🇪🇸", help="Перевод с русского на испанский", use_container_width=True):
-            st.session_state.current_screen = "ru_to_es"
-            st.rerun()
-            
-    with col3:
-        if st.button("📷 Фото", help="Перевод текста с изображения", use_container_width=True):
-            st.session_state.current_screen = "photo"
-            st.rerun()
-            
-    with col4:
-        if st.button("⚙️ Настройки", help="Настройки приложения", use_container_width=True):
-            st.session_state.current_screen = "settings"
-            st.rerun()
-            
-    st.divider()
-
 # Функция для отображения экрана перевода с испанского на русский
 def display_es_to_ru():
-    st.subheader("🇪🇸 → 🇷🇺 Перевод с испанского на русский")
-    
     # Инициализация переменных в session_state для сохранения состояния
     if 'es_to_ru_text' not in st.session_state:
         st.session_state.es_to_ru_text = ""
@@ -553,19 +673,8 @@ def display_es_to_ru():
     # Добавляем чекбокс для отображения отладочной информации
     show_debug = st.checkbox("Показать отладочную информацию", value=False, key="show_debug_es_ru")
     
-    # Шаблон запроса, который будет отправлен в API
-    system_prompt = st.session_state.system_prompts["es_to_ru"]
-    
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        # Кнопка для перевода
-        translate_button = st.button("Перевести 🔄", key="translate_es_ru")
-    
-    with col2:
-        # Кнопка для озвучивания исходного текста
-        if st.button("Озвучить исходный текст 🔊", key="speak_original_es"):
-            text_to_speech(spanish_text)
+    # Кнопка для перевода на всю ширину
+    translate_button = st.button("Перевести", use_container_width=True, key="translate_es_ru")
     
     # Выполняем перевод при нажатии кнопки
     if spanish_text and translate_button:
@@ -579,22 +688,24 @@ def display_es_to_ru():
     
     # Отображаем результат перевода, если он есть в session_state
     if st.session_state.es_to_ru_translation:
-        # Отображение результата перевода
-        st.subheader("Результат перевода:")
-        st.markdown(f"**{st.session_state.es_to_ru_translation}**")
+        # Создаем контейнер для результата с кнопками
+        result_container = st.container()
         
-        # Модель, которая использовалась для перевода
-        if st.session_state.es_to_ru_debug_info and st.session_state.es_to_ru_debug_info.get("model_used"):
-            st.info(f"Использовалась модель: {st.session_state.es_to_ru_debug_info['model_used']}")
-        
-        # Кнопки для действий с переводом
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("📋 Копировать перевод", key="copy_es_ru"):
-                st.toast("Текст скопирован в буфер обмена")
-        with col2:
-            if st.button("🔊 Озвучить перевод", key="speak_es_ru"):
-                text_to_speech(st.session_state.es_to_ru_translation)
+        with result_container:
+            # Блок с кнопками управления над результатом
+            action_cols = st.columns([7, 1, 1])
+            with action_cols[1]:
+                st.button("📋", key="copy_es_ru_inside", help="Копировать перевод")
+            with action_cols[2]:
+                if st.button("🔊", key="speak_es_ru_inside", help="Озвучить перевод"):
+                    text_to_speech(st.session_state.es_to_ru_translation)
+            
+            # HTML для отображения результата с кнопками
+            st.markdown(f"""
+            <div class="translation-result">
+                {st.session_state.es_to_ru_translation}
+            </div>
+            """, unsafe_allow_html=True)
         
         # Отображение отладочной информации
         if show_debug and st.session_state.es_to_ru_debug_info:
@@ -610,8 +721,6 @@ def display_es_to_ru():
 
 # Функция для отображения экрана перевода с русского на испанский
 def display_ru_to_es():
-    st.subheader("🇷🇺 → 🇪🇸 Перевод с русского на испанский")
-    
     # Инициализация переменных в session_state для сохранения состояния
     if 'ru_to_es_text' not in st.session_state:
         st.session_state.ru_to_es_text = ""
@@ -630,14 +739,8 @@ def display_ru_to_es():
     # Добавляем чекбокс для отображения отладочной информации
     show_debug = st.checkbox("Показать отладочную информацию", value=False, key="show_debug_ru_es")
     
-    # Шаблон запроса, который будет отправлен в API
-    system_prompt = st.session_state.system_prompts["ru_to_es"]
-    
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        # Кнопка для перевода
-        translate_button = st.button("Перевести 🔄", key="translate_ru_es")
+    # Кнопка для перевода на всю ширину
+    translate_button = st.button("Перевести", use_container_width=True, key="translate_ru_es")
     
     # Выполняем перевод при нажатии кнопки
     if russian_text and translate_button:
@@ -651,22 +754,24 @@ def display_ru_to_es():
     
     # Отображаем результат перевода, если он есть в session_state
     if st.session_state.ru_to_es_translation:
-        # Отображение результата перевода
-        st.subheader("Результат перевода:")
-        st.markdown(f"**{st.session_state.ru_to_es_translation}**")
+        # Создаем контейнер для результата с кнопками
+        result_container = st.container()
         
-        # Модель, которая использовалась для перевода
-        if st.session_state.ru_to_es_debug_info and st.session_state.ru_to_es_debug_info.get("model_used"):
-            st.info(f"Использовалась модель: {st.session_state.ru_to_es_debug_info['model_used']}")
-        
-        # Кнопки для действий с переводом
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("📋 Копировать перевод", key="copy_ru_es"):
-                st.toast("Текст скопирован в буфер обмена")
-        with col2:
-            if st.button("🔊 Озвучить перевод", key="speak_ru_es"):
-                text_to_speech(st.session_state.ru_to_es_translation)
+        with result_container:
+            # Блок с кнопками управления над результатом
+            action_cols = st.columns([7, 1, 1])
+            with action_cols[1]:
+                st.button("📋", key="copy_ru_es_inside", help="Копировать перевод")
+            with action_cols[2]:
+                if st.button("🔊", key="speak_ru_es_inside", help="Озвучить перевод"):
+                    text_to_speech(st.session_state.ru_to_es_translation)
+            
+            # HTML для отображения результата с кнопками
+            st.markdown(f"""
+            <div class="translation-result">
+                {st.session_state.ru_to_es_translation}
+            </div>
+            """, unsafe_allow_html=True)
         
         # Отображение отладочной информации
         if show_debug and st.session_state.ru_to_es_debug_info:
@@ -682,8 +787,6 @@ def display_ru_to_es():
 
 # Функция для отображения экрана перевода фото/скриншота
 def display_photo_translation():
-    st.subheader("📷 Перевод фото/скриншота")
-    
     # Инициализация переменных в session_state для сохранения состояния
     if 'photo_context' not in st.session_state:
         st.session_state.photo_context = ""
@@ -710,7 +813,8 @@ def display_photo_translation():
         image_pil = Image.open(image)
         st.image(image_pil, caption="Загруженное изображение", use_column_width=True)
         
-        translate_button = st.button("Перевести изображение 🔄", key="translate_photo")
+        # Кнопка для перевода на всю ширину
+        translate_button = st.button("Перевести", use_container_width=True, key="translate_photo")
         
         if translate_button:
             with st.spinner("Обработка изображения..."):
@@ -722,17 +826,21 @@ def display_photo_translation():
     
     # Отображаем результат перевода, если он есть в session_state
     if st.session_state.photo_translation:
-        # Отображение результата перевода
-        st.subheader("Результат перевода:")
-        st.markdown(f"**{st.session_state.photo_translation}**")
+        # Создаем контейнер для результата с кнопками
+        result_container = st.container()
         
-        # Модель, которая использовалась для перевода
-        if st.session_state.photo_debug_info and st.session_state.photo_debug_info.get("model_used"):
-            st.info(f"Использовалась модель: {st.session_state.photo_debug_info['model_used']}")
-        
-        # Кнопка для копирования перевода
-        if st.button("📋 Копировать перевод", key="copy_photo"):
-            st.toast("Текст скопирован в буфер обмена")
+        with result_container:
+            # Блок с кнопкой управления над результатом
+            action_cols = st.columns([8, 1])
+            with action_cols[1]:
+                st.button("📋", key="copy_photo_inside", help="Копировать перевод")
+            
+            # HTML для отображения результата с кнопками
+            st.markdown(f"""
+            <div class="translation-result">
+                {st.session_state.photo_translation}
+            </div>
+            """, unsafe_allow_html=True)
         
         # Отображение отладочной информации
         if show_debug and st.session_state.photo_debug_info:
@@ -749,7 +857,9 @@ def display_photo_translation():
 def display_settings():
     global successful_claude_model
     
-    st.subheader("⚙️ Настройки")
+    # Отображаем информацию о модели
+    if successful_claude_model:
+        st.info(f"Используется модель: {successful_claude_model}")
     
     # Выбор модели AI
     st.session_state.ai_model = st.selectbox(
@@ -835,28 +945,21 @@ def display_settings():
         st.session_state.system_prompts["photo_translation"] = st.session_state.photo_translation_prompt
         st.success("Системные промпты сохранены!")
 
-# Функция для отображения подвала сайта
-def display_footer():
-    st.divider()
-    st.markdown(
-        """
-        <div class="footer">
-            <p>AI Переводчик с испанского на русский и обратно | Версия 1.0.0</p>
-        </div>
-        """, 
-        unsafe_allow_html=True
-    )
-
-# Обновляем основную функцию для отображения меню
+# Обновляем основную функцию для отображения приложения
 def main():
     # Проверка наличия API ключей
     if not st.session_state.api_key_anthropic and st.session_state.ai_model == "Claude 3.7 Sonnet":
-        # Показываем форму для ввода API ключа Anthropic
-        st.title("AI Переводчик | Настройка API")
-        st.warning("API ключ Anthropic не найден. Введите его ниже:")
+        # Показываем форму для ввода API ключа Anthropic в упрощенном виде
+        st.markdown("""
+        <div style="padding: 20px; border: 1px solid #f0f2f6; border-radius: 5px; margin-bottom: 20px;">
+            <h2>AI Переводчик | Настройка API</h2>
+            <p style="color: #ff4b4b; margin-bottom: 15px;">API ключ Anthropic не найден. Введите его ниже:</p>
+        </div>
+        """, unsafe_allow_html=True)
         
         api_key = st.text_input("API ключ Anthropic", type="password")
-        if st.button("Сохранить API ключ"):
+        
+        if st.button("Сохранить API ключ", use_container_width=True):
             if api_key:
                 st.session_state.api_key_anthropic = api_key
                 st.success("API ключ сохранен!")
@@ -877,10 +980,48 @@ def main():
         
         return
     
-    # Отображаем основной интерфейс, если API ключ установлен
-    display_header()
+    # Добавляем стандартное боковое меню для выбора режима
+    with st.sidebar:
+        st.title("AI Переводчик")
+        
+        # Создаем вкладки для выбора режима
+        mode = st.radio(
+            "Выберите режим:",
+            ["🇪🇸 → 🇷🇺 Испанский → Русский", 
+             "🇷🇺 → 🇪🇸 Русский → Испанский", 
+             "📷 Перевод фото",
+             "⚙️ Настройки"]
+        )
+        
+        # Устанавливаем текущий экран в зависимости от выбора
+        if mode == "🇪🇸 → 🇷🇺 Испанский → Русский":
+            st.session_state.current_screen = "es_to_ru"
+        elif mode == "🇷🇺 → 🇪🇸 Русский → Испанский":
+            st.session_state.current_screen = "ru_to_es"
+        elif mode == "📷 Перевод фото":
+            st.session_state.current_screen = "photo"
+        elif mode == "⚙️ Настройки":
+            st.session_state.current_screen = "settings"
     
-    # Отображаем содержимое выбранной вкладки
+    # Определяем текст индикатора режима
+    mode_indicator_text = ""
+    if st.session_state.get('current_screen', 'es_to_ru') == "es_to_ru":
+        mode_indicator_text = "🇪🇸 → 🇷🇺"
+    elif st.session_state.get('current_screen', '') == "ru_to_es":
+        mode_indicator_text = "🇷🇺 → 🇪🇸"
+    elif st.session_state.get('current_screen', '') == "photo":
+        mode_indicator_text = "📷 Фото"
+    elif st.session_state.get('current_screen', '') == "settings":
+        mode_indicator_text = "⚙️ Настройки"
+    
+    # Добавляем индикатор текущего режима в правый верхний угол
+    st.markdown(f"""
+    <div class="mode-indicator">
+        {mode_indicator_text}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Отображаем содержимое выбранной вкладки без заголовков
     if st.session_state.get('current_screen', 'es_to_ru') == "es_to_ru":
         display_es_to_ru()
     elif st.session_state.get('current_screen', '') == "ru_to_es":
@@ -889,9 +1030,6 @@ def main():
         display_photo_translation()
     elif st.session_state.get('current_screen', '') == "settings":
         display_settings()
-    
-    # Отображаем footer
-    display_footer()
 
 if __name__ == "__main__":
     main() 
