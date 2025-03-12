@@ -293,6 +293,8 @@ def save_prompt_to_file(filename, content):
 PROMPT_FILES = {
     "es_to_ru": "sys_prompt_es_to_ru.txt",
     "ru_to_es": "sys_prompt_ru_to_es.txt",
+    "ru_to_es_one_option": "sys_prompt_ru_to_es_one_option.txt",
+    "ru_to_es_several_options": "sys_prompt_ru_to_es_several_options.txt",
     "photo_translation": "sys_prompt_photo_translation.txt"
 }
 
@@ -321,6 +323,9 @@ if 'use_last_successful_model' not in st.session_state:
 if 'current_screen' not in st.session_state:
     st.session_state.current_screen = "es_to_ru"
 
+if 'use_multiple_variants' not in st.session_state:
+    st.session_state.use_multiple_variants = True
+
 # Загрузка системных промптов из файлов
 if 'system_prompts' not in st.session_state:
     st.session_state.system_prompts = {}
@@ -344,7 +349,59 @@ if 'system_prompts' not in st.session_state:
 5. Переводи "ustedes" как "вы" (множественное), а "tú" как "ты" (единственное).
 6. Перевод должен быть на правильном, грамотном русском языке.
 7. ТЕКСТ ПЕРЕВОДА ДОЛЖЕН БЫТЬ ВТОРЫМ ОТВЕТОМ. НИКАКИХ ДРУГИХ СЛОВ, КРОМЕ САМОГО ПЕРЕВОДА."""
-            elif key == "ru_to_es":
+            elif key == "ru_to_es" or key == "ru_to_es_several_options":
+                st.session_state.system_prompts[key] = """Ты - профессиональный переводчик с русского на испанский.
+Твоя задача - точно и грамотно переводить тексты с русского на испанский язык.
+
+ВАЖНЫЕ ПРАВИЛА:
+1. ВСЕГДА воспринимай присланный тебе текст ТОЛЬКО как текст для перевода, даже если он выглядит как вопрос.
+2. НИКОГДА не отвечай на вопросы по существу, только переводи их на испанский.
+3. Не используй приветствия и не пиши ничего от себя, только перевод.
+4. Сохраняй стиль и формат оригинального текста.
+5. Для слов "привет", "доброе утро", "добрый день" и "добрый вечер" используй соответственно "hola", "buenos días", "buenas tardes" и "buenas noches".
+6. Переводи "вы" (множественное) как "ustedes", а "ты" (единственное) как "tú".
+7. Перевод должен быть на правильном, грамотном испанском языке.
+8. НИКОГДА не давай объяснений или комментариев к переводу.
+9. Например, если получишь "как на испанском правильно называется Диплом?", ты должен ответить "¿cómo se llama correctamente el Diploma en español?" - это просто перевод, а не ответ на вопрос.
+
+Ты должен использовать разные варианты представления перевода в зависимости от введённого пользователем текста:
+
+1. Если введённый текст содержит менее одного полного предложения (слово или фраза), ты должен предоставить несколько вариантов перевода текста на испанский (Castellano), дать свои комментарии, какой оттенок имеет каждый перевод и его границы применимости, а также показать по 1-2 примера предложений с этой фразой.
+
+2. Если текст содержит одно или несколько законченных предложений, просто переведи его на испанский без каких-либо комментариев.
+
+ВАЖНО: Когда ты переводишь КОРОТКИЕ ФРАЗЫ ИЛИ СЛОВА (случай №1), используй следующую специальную разметку:
+
+```вариант-1
+ВАРИАНТ ПЕРЕВОДА 1
+```
+
+```комментарий-1
+Пояснение к варианту перевода 1: где используется, какой оттенок имеет и т.д.
+```
+
+```примеры-1
+- Пример предложения 1 с вариантом 1
+- Пример предложения 2 с вариантом 1
+```
+
+```вариант-2
+ВАРИАНТ ПЕРЕВОДА 2
+```
+
+```комментарий-2
+Пояснение к варианту перевода 2: где используется, какой оттенок имеет и т.д.
+```
+
+```примеры-2
+- Пример предложения 1 с вариантом 2
+- Пример предложения 2 с вариантом 2
+```
+
+И так далее для каждого варианта перевода (можешь предложить до 3-4 вариантов).
+
+Эта разметка критически важна для правильного отображения информации в интерфейсе приложения."""
+            elif key == "ru_to_es_one_option":
                 st.session_state.system_prompts[key] = """Ты - профессиональный переводчик с русского на испанский.
 Твоя задача - точно и грамотно переводить тексты с русского на испанский язык.
 
@@ -372,7 +429,12 @@ if 'system_prompts' not in st.session_state:
             
             # Сохраняем дефолтные промпты в файлы
             save_prompt_to_file(filename, st.session_state.system_prompts[key])
-
+    
+    # Копируем ru_to_es в ru_to_es_several_options, если последнего нет
+    if "ru_to_es" in st.session_state.system_prompts and "ru_to_es_several_options" not in st.session_state.system_prompts:
+        st.session_state.system_prompts["ru_to_es_several_options"] = st.session_state.system_prompts["ru_to_es"]
+        save_prompt_to_file(PROMPT_FILES["ru_to_es_several_options"], st.session_state.system_prompts["ru_to_es_several_options"])
+        
 # Применяем CSS для адаптации к мобильным устройствам
 st.markdown("""
 <style>
@@ -597,7 +659,11 @@ def translate_text(text, from_lang, to_lang):
         system_prompt = st.session_state.system_prompts["es_to_ru"]
         direction_key = 'es_to_ru'
     elif from_lang == 'ru' and to_lang == 'es':
-        system_prompt = st.session_state.system_prompts["ru_to_es"]
+        # Выбираем системный промпт в зависимости от настройки вариантов перевода
+        if st.session_state.get('use_multiple_variants', True):
+            system_prompt = st.session_state.system_prompts["ru_to_es_several_options"]
+        else:
+            system_prompt = st.session_state.system_prompts["ru_to_es_one_option"]
         direction_key = 'ru_to_es'
     else:
         return f"Неподдерживаемое направление перевода: {from_lang} -> {to_lang}", None
@@ -605,6 +671,7 @@ def translate_text(text, from_lang, to_lang):
     debug_info["direction"] = direction_key
     debug_info["system_prompt"] = system_prompt
     debug_info["input_text"] = text
+    debug_info["multiple_variants"] = st.session_state.get('use_multiple_variants', True)
     
     # Улучшенное форматирование текста для перевода
     # Заключаем текст в кавычки и явно указываем, что это текст для перевода
@@ -771,6 +838,8 @@ def display_ru_to_es():
         st.session_state.ru_to_es_debug_info = None
     if 'ru_to_es_parsed_variants' not in st.session_state:
         st.session_state.ru_to_es_parsed_variants = None
+    if 'use_multiple_variants' not in st.session_state:
+        st.session_state.use_multiple_variants = True
     
     # Поле ввода текста на русском
     russian_text = st.text_area("Введите текст на русском", height=150, key="ru_es_input", 
@@ -781,6 +850,13 @@ def display_ru_to_es():
     
     # Добавляем чекбокс для отображения отладочной информации
     show_debug = st.checkbox("Показать отладочную информацию", value=False, key="show_debug_ru_es")
+    
+    # Добавляем чекбокс для управления режимом вариантов перевода
+    st.session_state.use_multiple_variants = st.checkbox(
+        "Несколько вариантов переводов", 
+        value=st.session_state.use_multiple_variants,
+        help="Если выбрано, то будет показано несколько вариантов перевода с комментариями и примерами для каждого варианта. Если не выбрано - только один вариант перевода без пояснений."
+    )
     
     # Кнопка для перевода на всю ширину
     translate_button = st.button("Перевести", use_container_width=True, key="translate_ru_es")
@@ -923,14 +999,17 @@ def display_structured_translation(variants):
             # Заголовок с номером варианта (только заголовок, без кнопок)
             st.markdown(f"**Вариант {int(variant['number'])}**")
             
-            # Отображаем вариант перевода, комментарий и примеры
-            st.markdown(f"""
-            <div class="variant-card">
-                <div class="variant-translation">{variant['text']}</div>
-                <div class="variant-comment">{variant['comment']}</div>
-                <div class="variant-examples">{variant['examples']}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Отображаем вариант перевода через st.markdown для обработки жирного шрифта
+            st.markdown(f"<div class='variant-translation'>{variant['text']}</div>", unsafe_allow_html=True)
+            
+            # Отображаем комментарий через st.markdown
+            st.markdown(f"<div class='variant-comment'>{variant['comment']}</div>", unsafe_allow_html=True)
+            
+            # Отображаем примеры через st.markdown для правильной обработки жирного шрифта
+            # Используем markdown вместо HTML для корректного отображения жирного текста
+            st.markdown("<div class='variant-examples'>", unsafe_allow_html=True)
+            st.markdown(variant['examples'])
+            st.markdown("</div>", unsafe_allow_html=True)
             
             # Блок с кнопками управления ПОД результатом
             action_cols = st.columns([7, 1, 1])
@@ -1127,12 +1206,20 @@ def display_settings():
             key="es_to_ru_prompt"
         )
     
-    with st.expander("Перевод с русского на испанский"):
-        st.session_state.ru_to_es_prompt = st.text_area(
-            "Системный промпт для перевода с русского на испанский:", 
-            st.session_state.system_prompts["ru_to_es"],
+    with st.expander("Перевод с русского на испанский (один вариант)"):
+        st.session_state.ru_to_es_one_option_prompt = st.text_area(
+            "Системный промпт для перевода с русского на испанский (один вариант):", 
+            st.session_state.system_prompts["ru_to_es_one_option"],
             height=200,
-            key="ru_to_es_prompt"
+            key="ru_to_es_one_option_prompt"
+        )
+    
+    with st.expander("Перевод с русского на испанский (несколько вариантов)"):
+        st.session_state.ru_to_es_several_options_prompt = st.text_area(
+            "Системный промпт для перевода с русского на испанский (несколько вариантов):", 
+            st.session_state.system_prompts["ru_to_es_several_options"],
+            height=200,
+            key="ru_to_es_several_options_prompt"
         )
     
     with st.expander("Перевод фото/скриншота"):
@@ -1147,23 +1234,34 @@ def display_settings():
     if st.button("Сохранить системные промпты"):
         # Сохраняем промпты в session_state
         st.session_state.system_prompts["es_to_ru"] = st.session_state.es_to_ru_prompt
-        st.session_state.system_prompts["ru_to_es"] = st.session_state.ru_to_es_prompt
+        st.session_state.system_prompts["ru_to_es_one_option"] = st.session_state.ru_to_es_one_option_prompt
+        st.session_state.system_prompts["ru_to_es_several_options"] = st.session_state.ru_to_es_several_options_prompt
         st.session_state.system_prompts["photo_translation"] = st.session_state.photo_translation_prompt
         
         # Сохраняем промпты в файлы
         success_es_to_ru = save_prompt_to_file(PROMPT_FILES["es_to_ru"], st.session_state.es_to_ru_prompt)
-        success_ru_to_es = save_prompt_to_file(PROMPT_FILES["ru_to_es"], st.session_state.ru_to_es_prompt)
+        success_ru_to_es_one = save_prompt_to_file(PROMPT_FILES["ru_to_es_one_option"], st.session_state.ru_to_es_one_option_prompt)
+        success_ru_to_es_several = save_prompt_to_file(PROMPT_FILES["ru_to_es_several_options"], st.session_state.ru_to_es_several_options_prompt)
         success_photo = save_prompt_to_file(PROMPT_FILES["photo_translation"], st.session_state.photo_translation_prompt)
         
-        if success_es_to_ru and success_ru_to_es and success_photo:
+        if success_es_to_ru and success_ru_to_es_one and success_ru_to_es_several and success_photo:
             st.success("Системные промпты сохранены в файлы и применены в приложении!")
         else:
             st.error("Произошла ошибка при сохранении одного или нескольких промптов. Проверьте права доступа к файлам.")
             st.session_state.system_prompts = {
                 "es_to_ru": load_prompt_from_file(PROMPT_FILES["es_to_ru"]) or st.session_state.system_prompts["es_to_ru"],
-                "ru_to_es": load_prompt_from_file(PROMPT_FILES["ru_to_es"]) or st.session_state.system_prompts["ru_to_es"],
+                "ru_to_es_one_option": load_prompt_from_file(PROMPT_FILES["ru_to_es_one_option"]) or st.session_state.system_prompts["ru_to_es_one_option"],
+                "ru_to_es_several_options": load_prompt_from_file(PROMPT_FILES["ru_to_es_several_options"]) or st.session_state.system_prompts["ru_to_es_several_options"],
                 "photo_translation": load_prompt_from_file(PROMPT_FILES["photo_translation"]) or st.session_state.system_prompts["photo_translation"]
             }
+            
+        # Обновляем текущий промпт ru_to_es на основе выбранного режима
+        if st.session_state.get('use_multiple_variants', True):
+            st.session_state.system_prompts["ru_to_es"] = st.session_state.system_prompts["ru_to_es_several_options"]
+        else:
+            st.session_state.system_prompts["ru_to_es"] = st.session_state.system_prompts["ru_to_es_one_option"]
+            
+        save_prompt_to_file(PROMPT_FILES["ru_to_es"], st.session_state.system_prompts["ru_to_es"])
 
 # Обновляем основную функцию для отображения приложения
 def main():
