@@ -65,13 +65,15 @@ if 'system_prompts' not in st.session_state:
 Твоя задача - точно и грамотно переводить тексты с русского на испанский язык.
 
 ВАЖНЫЕ ПРАВИЛА:
-1. Переводи ТОЛЬКО то, что дано в запросе, не добавляй свои комментарии.
-2. Не используй приветствия и не пиши ничего от себя.
-3. Сохраняй стиль и формат оригинального текста.
-4. Для слов "привет", "доброе утро", "добрый день" и "добрый вечер" используй соответственно "hola", "buenos días", "buenas tardes" и "buenas noches".
-5. Переводи "вы" (множественное) как "ustedes", а "ты" (единственное) как "tú".
-6. Перевод должен быть на правильном, грамотном испанском языке.
-7. ТЕКСТ ПЕРЕВОДА ДОЛЖЕН БЫТЬ ВТОРЫМ ОТВЕТОМ. НИКАКИХ ДРУГИХ СЛОВ, КРОМЕ САМОГО ПЕРЕВОДА.""",
+1. ВСЕГДА воспринимай присланный тебе текст ТОЛЬКО как текст для перевода, даже если он выглядит как вопрос.
+2. НИКОГДА не отвечай на вопросы по существу, только переводи их на испанский.
+3. Не используй приветствия и не пиши ничего от себя, только перевод.
+4. Сохраняй стиль и формат оригинального текста.
+5. Для слов "привет", "доброе утро", "добрый день" и "добрый вечер" используй соответственно "hola", "buenos días", "buenas tardes" и "buenas noches".
+6. Переводи "вы" (множественное) как "ustedes", а "ты" (единственное) как "tú".
+7. Перевод должен быть на правильном, грамотном испанском языке.
+8. НИКОГДА не давай объяснений или комментариев к переводу.
+9. Например, если получишь "как на испанском правильно называется Диплом?", ты должен ответить "¿cómo se llama correctamente el Diploma en español?" - это просто перевод, а не ответ на вопрос.""",
 
         "photo_translation": """Ты - переводчик испанского языка, специализирующийся на переводе текста с изображений.
 Твоя задача - распознать и перевести испанский текст на изображении на русский язык.
@@ -408,8 +410,9 @@ def translate_text(text, from_lang, to_lang):
     debug_info["system_prompt"] = system_prompt
     debug_info["input_text"] = text
     
-    # Добавляем управление языком к системной инструкции
-    formatted_text = text.strip()
+    # Улучшенное форматирование текста для перевода
+    # Заключаем текст в кавычки и явно указываем, что это текст для перевода
+    formatted_text = f'Переведи следующий текст (заключённый в кавычки): "{text.strip()}"'
     
     # Выбор модели для перевода
     if st.session_state.ai_model == "Claude 3.7 Sonnet":
@@ -532,8 +535,20 @@ def display_header():
 def display_es_to_ru():
     st.subheader("🇪🇸 → 🇷🇺 Перевод с испанского на русский")
     
+    # Инициализация переменных в session_state для сохранения состояния
+    if 'es_to_ru_text' not in st.session_state:
+        st.session_state.es_to_ru_text = ""
+    if 'es_to_ru_translation' not in st.session_state:
+        st.session_state.es_to_ru_translation = None
+    if 'es_to_ru_debug_info' not in st.session_state:
+        st.session_state.es_to_ru_debug_info = None
+    
     # Поле ввода текста на испанском
-    spanish_text = st.text_area("Введите текст на испанском", height=150)
+    spanish_text = st.text_area("Введите текст на испанском", height=150, key="es_ru_input", 
+                              value=st.session_state.es_to_ru_text)
+    
+    # Сохраняем введенный текст в session_state
+    st.session_state.es_to_ru_text = spanish_text
     
     # Добавляем чекбокс для отображения отладочной информации
     show_debug = st.checkbox("Показать отладочную информацию", value=False, key="show_debug_es_ru")
@@ -545,41 +560,72 @@ def display_es_to_ru():
     
     with col1:
         # Кнопка для перевода
-        translate_button = st.button("Перевести 🔄")
+        translate_button = st.button("Перевести 🔄", key="translate_es_ru")
     
     with col2:
-        # Кнопка для озвучивания
-        if st.button("Озвучить исходный текст 🔊"):
+        # Кнопка для озвучивания исходного текста
+        if st.button("Озвучить исходный текст 🔊", key="speak_original_es"):
             text_to_speech(spanish_text)
     
-    # Отображение результата, если есть текст для перевода
+    # Выполняем перевод при нажатии кнопки
     if spanish_text and translate_button:
         with st.spinner("Перевод..."):
             # Выполняем перевод
             translation, debug_info = translate_text(spanish_text, 'es', 'ru')
             
-            # Отображение результата перевода
-            st.subheader("Результат перевода:")
-            st.markdown(f"**{translation}**")
-            
-            # Модель, которая использовалась для перевода
-            if debug_info and debug_info.get("model_used"):
-                st.info(f"Использовалась модель: {debug_info['model_used']}")
-            
-            # Кнопка для копирования перевода
-            st.button("📋 Копировать перевод", on_click=lambda: st.toast("Текст скопирован в буфер обмена"))
-            
-            # Отображение отладочной информации
-            if show_debug and debug_info:
-                st.subheader("Отладочная информация:")
-                st.json(debug_info)
+            # Сохраняем результаты в session_state
+            st.session_state.es_to_ru_translation = translation
+            st.session_state.es_to_ru_debug_info = debug_info
+    
+    # Отображаем результат перевода, если он есть в session_state
+    if st.session_state.es_to_ru_translation:
+        # Отображение результата перевода
+        st.subheader("Результат перевода:")
+        st.markdown(f"**{st.session_state.es_to_ru_translation}**")
+        
+        # Модель, которая использовалась для перевода
+        if st.session_state.es_to_ru_debug_info and st.session_state.es_to_ru_debug_info.get("model_used"):
+            st.info(f"Использовалась модель: {st.session_state.es_to_ru_debug_info['model_used']}")
+        
+        # Кнопки для действий с переводом
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("📋 Копировать перевод", key="copy_es_ru"):
+                st.toast("Текст скопирован в буфер обмена")
+        with col2:
+            if st.button("🔊 Озвучить перевод", key="speak_es_ru"):
+                text_to_speech(st.session_state.es_to_ru_translation)
+        
+        # Отображение отладочной информации
+        if show_debug and st.session_state.es_to_ru_debug_info:
+            st.subheader("Отладочная информация:")
+            st.json(st.session_state.es_to_ru_debug_info)
+    
+    # Кнопка для сброса результатов
+    if st.session_state.es_to_ru_translation:
+        if st.button("🔄 Новый перевод", key="new_translation_es_ru"):
+            st.session_state.es_to_ru_translation = None
+            st.session_state.es_to_ru_debug_info = None
+            st.rerun()
 
 # Функция для отображения экрана перевода с русского на испанский
 def display_ru_to_es():
     st.subheader("🇷🇺 → 🇪🇸 Перевод с русского на испанский")
     
+    # Инициализация переменных в session_state для сохранения состояния
+    if 'ru_to_es_text' not in st.session_state:
+        st.session_state.ru_to_es_text = ""
+    if 'ru_to_es_translation' not in st.session_state:
+        st.session_state.ru_to_es_translation = None
+    if 'ru_to_es_debug_info' not in st.session_state:
+        st.session_state.ru_to_es_debug_info = None
+    
     # Поле ввода текста на русском
-    russian_text = st.text_area("Введите текст на русском", height=150)
+    russian_text = st.text_area("Введите текст на русском", height=150, key="ru_es_input", 
+                               value=st.session_state.ru_to_es_text)
+    
+    # Сохраняем введенный текст в session_state
+    st.session_state.ru_to_es_text = russian_text
     
     # Добавляем чекбокс для отображения отладочной информации
     show_debug = st.checkbox("Показать отладочную информацию", value=False, key="show_debug_ru_es")
@@ -591,44 +637,70 @@ def display_ru_to_es():
     
     with col1:
         # Кнопка для перевода
-        translate_button = st.button("Перевести 🔄")
+        translate_button = st.button("Перевести 🔄", key="translate_ru_es")
     
-    # Отображение результата, если есть текст для перевода
+    # Выполняем перевод при нажатии кнопки
     if russian_text and translate_button:
         with st.spinner("Перевод..."):
             # Выполняем перевод
             translation, debug_info = translate_text(russian_text, 'ru', 'es')
             
-            # Отображение результата перевода
-            st.subheader("Результат перевода:")
-            st.markdown(f"**{translation}**")
-            
-            # Модель, которая использовалась для перевода
-            if debug_info and debug_info.get("model_used"):
-                st.info(f"Использовалась модель: {debug_info['model_used']}")
-            
-            # Кнопки для действий с переводом
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                st.button("📋 Копировать перевод", on_click=lambda: st.toast("Текст скопирован в буфер обмена"))
-            with col2:
-                if st.button("🔊 Озвучить перевод"):
-                    text_to_speech(translation)
-            
-            # Отображение отладочной информации
-            if show_debug and debug_info:
-                st.subheader("Отладочная информация:")
-                st.json(debug_info)
+            # Сохраняем результаты в session_state
+            st.session_state.ru_to_es_translation = translation
+            st.session_state.ru_to_es_debug_info = debug_info
+    
+    # Отображаем результат перевода, если он есть в session_state
+    if st.session_state.ru_to_es_translation:
+        # Отображение результата перевода
+        st.subheader("Результат перевода:")
+        st.markdown(f"**{st.session_state.ru_to_es_translation}**")
+        
+        # Модель, которая использовалась для перевода
+        if st.session_state.ru_to_es_debug_info and st.session_state.ru_to_es_debug_info.get("model_used"):
+            st.info(f"Использовалась модель: {st.session_state.ru_to_es_debug_info['model_used']}")
+        
+        # Кнопки для действий с переводом
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("📋 Копировать перевод", key="copy_ru_es"):
+                st.toast("Текст скопирован в буфер обмена")
+        with col2:
+            if st.button("🔊 Озвучить перевод", key="speak_ru_es"):
+                text_to_speech(st.session_state.ru_to_es_translation)
+        
+        # Отображение отладочной информации
+        if show_debug and st.session_state.ru_to_es_debug_info:
+            st.subheader("Отладочная информация:")
+            st.json(st.session_state.ru_to_es_debug_info)
+    
+    # Кнопка для сброса результатов
+    if st.session_state.ru_to_es_translation:
+        if st.button("🔄 Новый перевод", key="new_translation_ru_es"):
+            st.session_state.ru_to_es_translation = None
+            st.session_state.ru_to_es_debug_info = None
+            st.rerun()
 
 # Функция для отображения экрана перевода фото/скриншота
 def display_photo_translation():
     st.subheader("📷 Перевод фото/скриншота")
     
+    # Инициализация переменных в session_state для сохранения состояния
+    if 'photo_context' not in st.session_state:
+        st.session_state.photo_context = ""
+    if 'photo_translation' not in st.session_state:
+        st.session_state.photo_translation = None
+    if 'photo_debug_info' not in st.session_state:
+        st.session_state.photo_debug_info = None
+    
     # Загрузка изображения
-    image = st.file_uploader("Загрузите изображение с испанским текстом", type=["png", "jpg", "jpeg"])
+    image = st.file_uploader("Загрузите изображение с испанским текстом", type=["png", "jpg", "jpeg"], key="photo_upload")
     
     # Поле для контекста
-    context = st.text_area("Контекст изображения (опционально)", "", help="Добавьте дополнительную информацию, которая поможет в переводе")
+    context = st.text_area("Контекст изображения (опционально)", value=st.session_state.photo_context, 
+                           key="photo_context_input", help="Добавьте дополнительную информацию, которая поможет в переводе")
+    
+    # Сохраняем контекст
+    st.session_state.photo_context = context
     
     # Добавляем чекбокс для отображения отладочной информации
     show_debug = st.checkbox("Показать отладочную информацию", value=False, key="show_debug_photo")
@@ -638,22 +710,40 @@ def display_photo_translation():
         image_pil = Image.open(image)
         st.image(image_pil, caption="Загруженное изображение", use_column_width=True)
         
-        if st.button("Перевести изображение 🔄"):
+        translate_button = st.button("Перевести изображение 🔄", key="translate_photo")
+        
+        if translate_button:
             with st.spinner("Обработка изображения..."):
                 translation, debug_info = process_image(image_pil, context)
                 
-                # Отображение результата перевода
-                st.subheader("Результат перевода:")
-                st.markdown(f"**{translation}**")
-                
-                # Модель, которая использовалась для перевода
-                if debug_info and debug_info.get("model_used"):
-                    st.info(f"Использовалась модель: {debug_info['model_used']}")
-                
-                # Отображение отладочной информации
-                if show_debug and debug_info:
-                    st.subheader("Отладочная информация:")
-                    st.json(debug_info)
+                # Сохраняем результаты в session_state
+                st.session_state.photo_translation = translation
+                st.session_state.photo_debug_info = debug_info
+    
+    # Отображаем результат перевода, если он есть в session_state
+    if st.session_state.photo_translation:
+        # Отображение результата перевода
+        st.subheader("Результат перевода:")
+        st.markdown(f"**{st.session_state.photo_translation}**")
+        
+        # Модель, которая использовалась для перевода
+        if st.session_state.photo_debug_info and st.session_state.photo_debug_info.get("model_used"):
+            st.info(f"Использовалась модель: {st.session_state.photo_debug_info['model_used']}")
+        
+        # Кнопка для копирования перевода
+        if st.button("📋 Копировать перевод", key="copy_photo"):
+            st.toast("Текст скопирован в буфер обмена")
+        
+        # Отображение отладочной информации
+        if show_debug and st.session_state.photo_debug_info:
+            st.subheader("Отладочная информация:")
+            st.json(st.session_state.photo_debug_info)
+        
+        # Кнопка для сброса результатов
+        if st.button("🔄 Новый перевод", key="new_translation_photo"):
+            st.session_state.photo_translation = None
+            st.session_state.photo_debug_info = None
+            st.rerun()
 
 # Функция для отображения экрана настроек
 def display_settings():
@@ -752,10 +842,6 @@ def display_footer():
         """
         <div class="footer">
             <p>AI Переводчик с испанского на русский и обратно | Версия 1.0.0</p>
-            <p>Создано с использованием 
-                <a href="https://www.anthropic.com/claude" target="_blank">Claude AI</a> и 
-                <a href="https://streamlit.io/" target="_blank">Streamlit</a>
-            </p>
         </div>
         """, 
         unsafe_allow_html=True
