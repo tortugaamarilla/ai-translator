@@ -1132,33 +1132,31 @@ def display_structured_translation(variants, direction="ru_to_es"):
             
             # Разная обработка для ru_to_es и es_to_ru
             if direction == "ru_to_es":
-                # Для ru_to_es согласно промпту формат следующий:
-                # - Пример предложения 1 с **вариантом 1** (на испанском)
-                # - Пример предложения 2 с **вариантом 1** (на испанском)
-                # - Русский перевод примера 1
-                # - Русский перевод примера 2
-                
-                # Определяем половину списка - сначала идут испанские примеры, потом русские переводы
-                num_examples = len(example_lines) // 2
-                
-                # Проходим по каждому испанскому примеру и его русскому переводу
-                for i in range(num_examples):
-                    if i < num_examples and i + num_examples < len(example_lines):
-                        # Получаем испанский пример и его русский перевод
-                        spanish_example = example_lines[i]
-                        russian_translation = example_lines[i + num_examples]
+                # Используем тот же алгоритм, что и для es_to_ru - парное отображение: пример-перевод, пример-перевод...
+                i = 0
+                while i < len(example_lines):
+                    if i + 1 < len(example_lines):
+                        example = example_lines[i]
+                        translation = example_lines[i + 1]
                         
                         # Блок примера
                         st.write("<div class='example-block'>", unsafe_allow_html=True)
                         
-                        # Используем markdown для испанского примера, чтобы обработать жирный шрифт
-                        st.markdown(f"{spanish_example}", unsafe_allow_html=False)
+                        # Используем markdown для примера на испанском, чтобы сохранить жирное выделение
+                        st.markdown(example)
                         
-                        # Используем markdown для русского перевода с CSS-стилями
-                        st.markdown(f"<div class='example-translation'>{russian_translation}</div>", unsafe_allow_html=True)
+                        # Используем HTML для стилизации перевода на русский
+                        st.markdown(f"<div class='example-translation'>{translation}</div>", unsafe_allow_html=True)
                         
                         # Завершаем блок примера
                         st.write("</div>", unsafe_allow_html=True)
+                        
+                        # Переходим к следующей паре
+                        i += 2
+                    else:
+                        # Если осталась одна строка без пары
+                        st.markdown(example_lines[i])
+                        i += 1
             else:
                 # Для es_to_ru формат: пример-перевод, пример-перевод...
                 i = 0
