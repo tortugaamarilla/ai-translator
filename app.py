@@ -137,7 +137,8 @@ st.markdown("""
 <script>
 // Функция для копирования текста из результата перевода
 function copyTranslationText(btn) {
-    const resultDiv = document.querySelector('.translation-result');
+    // Для кнопок, которые находятся под результатом перевода, ищем предыдущий элемент
+    const resultDiv = btn.closest('.row-widget').parentElement.previousElementSibling.querySelector('.translation-result');
     if (resultDiv) {
         const text = resultDiv.innerText || resultDiv.textContent;
         navigator.clipboard.writeText(text)
@@ -206,7 +207,8 @@ function setupSpeakButtons() {
         if (!button.hasAttribute('data-speak-listener')) {
             button.setAttribute('data-speak-listener', 'true');
             button.addEventListener('click', function(e) {
-                const translationElement = this.closest('.stButton').previousElementSibling;
+                // Находим ближайший элемент перевода (теперь он находится перед кнопкой)
+                const translationElement = this.closest('.row-widget').parentElement.previousElementSibling.querySelector('.translation-result');
                 if (translationElement) {
                     const text = translationElement.textContent.trim();
                     if (text) {
@@ -731,20 +733,20 @@ def display_es_to_ru():
         result_container = st.container()
         
         with result_container:
-            # Блок с кнопками управления над результатом
+            # Отображаем результат сначала
+            st.markdown(f"""
+            <div class="translation-result">
+                {st.session_state.es_to_ru_translation}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Блок с кнопками управления ПОД результатом
             action_cols = st.columns([7, 1, 1])
             with action_cols[1]:
                 st.button("📋", key="copy_es_ru_inside", help="Копировать перевод")
             with action_cols[2]:
                 if st.button("🔊", key="speak_es_ru_inside", help="Озвучить перевод"):
                     text_to_speech(st.session_state.es_to_ru_translation)
-            
-            # HTML для отображения результата с кнопками
-            st.markdown(f"""
-            <div class="translation-result">
-                {st.session_state.es_to_ru_translation}
-            </div>
-            """, unsafe_allow_html=True)
         
         # Отображение отладочной информации
         if show_debug and st.session_state.es_to_ru_debug_info:
@@ -767,6 +769,8 @@ def display_ru_to_es():
         st.session_state.ru_to_es_translation = None
     if 'ru_to_es_debug_info' not in st.session_state:
         st.session_state.ru_to_es_debug_info = None
+    if 'ru_to_es_parsed_variants' not in st.session_state:
+        st.session_state.ru_to_es_parsed_variants = None
     
     # Поле ввода текста на русском
     russian_text = st.text_area("Введите текст на русском", height=150, key="ru_es_input", 
@@ -790,27 +794,35 @@ def display_ru_to_es():
             # Сохраняем результаты в session_state
             st.session_state.ru_to_es_translation = translation
             st.session_state.ru_to_es_debug_info = debug_info
+            
+            # Парсим результат, чтобы выделить варианты перевода
+            parsed_variants = parse_translation_variants(translation)
+            st.session_state.ru_to_es_parsed_variants = parsed_variants
     
-    # Отображаем результат перевода, если он есть в session_state
-    if st.session_state.ru_to_es_translation:
+    # Проверяем, есть ли разобранные варианты перевода для короткой фразы
+    if st.session_state.ru_to_es_parsed_variants and len(st.session_state.ru_to_es_parsed_variants) > 0:
+        # Отображаем структурированный результат для короткой фразы/слова
+        display_structured_translation(st.session_state.ru_to_es_parsed_variants)
+    # Отображаем обычный результат перевода для предложений
+    elif st.session_state.ru_to_es_translation:
         # Создаем контейнер для результата с кнопками
         result_container = st.container()
         
         with result_container:
-            # Блок с кнопками управления над результатом
+            # Отображаем результат сначала
+            st.markdown(f"""
+            <div class="translation-result">
+                {st.session_state.ru_to_es_translation}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Блок с кнопками управления ПОД результатом
             action_cols = st.columns([7, 1, 1])
             with action_cols[1]:
                 st.button("📋", key="copy_ru_es_inside", help="Копировать перевод")
             with action_cols[2]:
                 if st.button("🔊", key="speak_ru_es_inside", help="Озвучить перевод"):
                     text_to_speech(st.session_state.ru_to_es_translation)
-            
-            # HTML для отображения результата с кнопками
-            st.markdown(f"""
-            <div class="translation-result">
-                {st.session_state.ru_to_es_translation}
-            </div>
-            """, unsafe_allow_html=True)
         
         # Отображение отладочной информации
         if show_debug and st.session_state.ru_to_es_debug_info:
@@ -822,7 +834,159 @@ def display_ru_to_es():
         if st.button("🔄 Новый перевод", key="new_translation_ru_es"):
             st.session_state.ru_to_es_translation = None
             st.session_state.ru_to_es_debug_info = None
+            st.session_state.ru_to_es_parsed_variants = None
             st.rerun()
+
+# Функция для парсинга разных вариантов перевода из ответа модели
+def parse_translation_variants(translation_text):
+    """
+    Парсит структурированный ответ от модели и возвращает список вариантов перевода
+    с их комментариями и примерами использования.
+    """
+    if not translation_text:
+        return []
+    
+    variants = []
+    
+    # Регулярное выражение для поиска разметки
+    import re
+    
+    # Ищем варианты переводов
+    variant_pattern = re.compile(r'```вариант-(\d+)\n(.*?)```', re.DOTALL)
+    comment_pattern = re.compile(r'```комментарий-(\d+)\n(.*?)```', re.DOTALL)
+    examples_pattern = re.compile(r'```примеры-(\d+)\n(.*?)```', re.DOTALL)
+    
+    # Ищем все варианты перевода
+    variant_matches = variant_pattern.findall(translation_text)
+    
+    # Если не нашли варианты в разметке - значит перевод обычного предложения, возвращаем пустой список
+    if not variant_matches:
+        return []
+    
+    # Получаем все комментарии и примеры
+    comment_matches = {num: text.strip() for num, text in comment_pattern.findall(translation_text)}
+    examples_matches = {num: text.strip() for num, text in examples_pattern.findall(translation_text)}
+    
+    # Формируем структуру данных с вариантами
+    for num, text in variant_matches:
+        variant = {
+            "number": num,
+            "text": text.strip(),
+            "comment": comment_matches.get(num, ""),
+            "examples": examples_matches.get(num, "")
+        }
+        variants.append(variant)
+    
+    return variants
+
+# Функция для отображения структурированного перевода с вариантами
+def display_structured_translation(variants):
+    """
+    Отображает структурированный перевод с разными вариантами, комментариями 
+    и примерами использования.
+    """
+    st.subheader("Варианты перевода:")
+    
+    for i, variant in enumerate(variants):
+        # Создаем контейнер для каждого варианта
+        variant_container = st.container()
+        
+        with variant_container:
+            # Карточка для варианта перевода
+            st.markdown("""
+            <style>
+            .variant-card {
+                border: 1px solid #e0e0e0;
+                border-radius: 5px;
+                padding: 15px;
+                margin-bottom: 10px;
+                background-color: #f9f9f9;
+            }
+            .variant-translation {
+                font-size: 1.2rem;
+                font-weight: bold;
+                margin-bottom: 10px;
+            }
+            .variant-comment {
+                margin-bottom: 10px;
+                border-left: 3px solid #4CAF50;
+                padding-left: 10px;
+                font-style: italic;
+            }
+            .variant-examples {
+                border-left: 3px solid #2196F3;
+                padding-left: 10px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Заголовок с номером варианта (только заголовок, без кнопок)
+            st.markdown(f"**Вариант {int(variant['number'])}**")
+            
+            # Отображаем вариант перевода, комментарий и примеры
+            st.markdown(f"""
+            <div class="variant-card">
+                <div class="variant-translation">{variant['text']}</div>
+                <div class="variant-comment">{variant['comment']}</div>
+                <div class="variant-examples">{variant['examples']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Блок с кнопками управления ПОД результатом
+            action_cols = st.columns([7, 1, 1])
+            
+            # Оставляем первую колонку пустой для выравнивания
+            with action_cols[0]:
+                st.write("")
+                
+            with action_cols[1]:
+                # Кнопка для копирования только текста перевода (без комментариев и примеров)
+                st.button("📋", key=f"copy_variant_{i}", help="Копировать этот вариант")
+                
+            with action_cols[2]:
+                # Кнопка для озвучивания только текста перевода
+                if st.button("🔊", key=f"speak_variant_{i}", help="Озвучить этот вариант"):
+                    text_to_speech(variant['text'])
+    
+    # Для поддержки копирования вариантов перевода из вариантов
+    st.markdown("""
+    <script>
+    // Дополнительные обработчики для копирования вариантов
+    document.addEventListener('DOMContentLoaded', function() {
+        // Находим все кнопки копирования вариантов
+        const variantCopyButtons = document.querySelectorAll('button[data-testid*="stButton"]:has(div:contains("📋"))');
+        variantCopyButtons.forEach(button => {
+            const buttonId = button.getAttribute('data-testid');
+            if (buttonId && buttonId.includes('copy_variant_')) {
+                button.addEventListener('click', function() {
+                    // Находим ближайший контейнер с переводом
+                    const translationElement = this.closest('.row-widget').parentElement.previousElementSibling.querySelector('.variant-translation');
+                    if (translationElement) {
+                        const text = translationElement.innerText || translationElement.textContent;
+                        navigator.clipboard.writeText(text)
+                            .then(() => {
+                                Toastify({
+                                    text: "Вариант скопирован!",
+                                    duration: 2000,
+                                    close: false,
+                                    gravity: "bottom",
+                                    position: "center",
+                                    stopOnFocus: true,
+                                    style: {
+                                        background: "linear-gradient(to right, #00b09b, #96c93d)",
+                                    }
+                                }).showToast();
+                            })
+                            .catch(err => {
+                                console.error("Ошибка при копировании: ", err);
+                            });
+                    }
+                });
+            }
+        });
+    });
+    </script>
+    """, unsafe_allow_html=True)
 
 # Функция для отображения экрана перевода фото/скриншота
 def display_photo_translation():
@@ -869,17 +1033,17 @@ def display_photo_translation():
         result_container = st.container()
         
         with result_container:
-            # Блок с кнопкой управления над результатом
-            action_cols = st.columns([8, 1])
-            with action_cols[1]:
-                st.button("📋", key="copy_photo_inside", help="Копировать перевод")
-            
-            # HTML для отображения результата с кнопками
+            # Отображаем результат сначала
             st.markdown(f"""
             <div class="translation-result">
                 {st.session_state.photo_translation}
             </div>
             """, unsafe_allow_html=True)
+            
+            # Блок с кнопкой управления ПОД результатом
+            action_cols = st.columns([8, 1])
+            with action_cols[1]:
+                st.button("📋", key="copy_photo_inside", help="Копировать перевод")
         
         # Отображение отладочной информации
         if show_debug and st.session_state.photo_debug_info:
