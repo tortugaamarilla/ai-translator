@@ -267,6 +267,33 @@ document.addEventListener('DOMContentLoaded', function() {
 if 'https_proxy' in os.environ:
     del os.environ['https_proxy']
 
+# Функции для работы с файлами промптов
+def load_prompt_from_file(filename):
+    """Загружает текст промпта из файла"""
+    try:
+        with open(filename, 'r', encoding='utf-8') as file:
+            return file.read()
+    except Exception as e:
+        print(f"Ошибка при чтении файла промпта {filename}: {e}")
+        return None
+
+def save_prompt_to_file(filename, content):
+    """Сохраняет текст промпта в файл"""
+    try:
+        with open(filename, 'w', encoding='utf-8') as file:
+            file.write(content)
+        return True
+    except Exception as e:
+        print(f"Ошибка при записи в файл промпта {filename}: {e}")
+        return False
+
+# Пути к файлам промптов
+PROMPT_FILES = {
+    "es_to_ru": "sys_prompt_es_to_ru.txt",
+    "ru_to_es": "sys_prompt_ru_to_es.txt",
+    "photo_translation": "sys_prompt_photo_translation.txt"
+}
+
 # Глобальная переменная для хранения последней успешно использованной модели
 successful_claude_model = None
 
@@ -292,9 +319,19 @@ if 'use_last_successful_model' not in st.session_state:
 if 'current_screen' not in st.session_state:
     st.session_state.current_screen = "es_to_ru"
 
+# Загрузка системных промптов из файлов
 if 'system_prompts' not in st.session_state:
-    st.session_state.system_prompts = {
-        "es_to_ru": """Ты - профессиональный переводчик с испанского на русский. 
+    st.session_state.system_prompts = {}
+    
+    # Загружаем промпты из файлов
+    for key, filename in PROMPT_FILES.items():
+        prompt_text = load_prompt_from_file(filename)
+        if prompt_text:
+            st.session_state.system_prompts[key] = prompt_text
+        else:
+            # Используем дефолтные промпты, если файлы не найдены
+            if key == "es_to_ru":
+                st.session_state.system_prompts[key] = """Ты - профессиональный переводчик с испанского на русский. 
 Твоя задача - точно и грамотно переводить тексты с испанского на русский язык.
 
 ВАЖНЫЕ ПРАВИЛА:
@@ -304,9 +341,9 @@ if 'system_prompts' not in st.session_state:
 4. Для слов "hola", "buenos días", "buenas tardes", и "buenas noches" используй соответственно "привет", "доброе утро", "добрый день" и "добрый вечер".
 5. Переводи "ustedes" как "вы" (множественное), а "tú" как "ты" (единственное).
 6. Перевод должен быть на правильном, грамотном русском языке.
-7. ТЕКСТ ПЕРЕВОДА ДОЛЖЕН БЫТЬ ВТОРЫМ ОТВЕТОМ. НИКАКИХ ДРУГИХ СЛОВ, КРОМЕ САМОГО ПЕРЕВОДА.""",
-
-        "ru_to_es": """Ты - профессиональный переводчик с русского на испанский.
+7. ТЕКСТ ПЕРЕВОДА ДОЛЖЕН БЫТЬ ВТОРЫМ ОТВЕТОМ. НИКАКИХ ДРУГИХ СЛОВ, КРОМЕ САМОГО ПЕРЕВОДА."""
+            elif key == "ru_to_es":
+                st.session_state.system_prompts[key] = """Ты - профессиональный переводчик с русского на испанский.
 Твоя задача - точно и грамотно переводить тексты с русского на испанский язык.
 
 ВАЖНЫЕ ПРАВИЛА:
@@ -318,9 +355,9 @@ if 'system_prompts' not in st.session_state:
 6. Переводи "вы" (множественное) как "ustedes", а "ты" (единственное) как "tú".
 7. Перевод должен быть на правильном, грамотном испанском языке.
 8. НИКОГДА не давай объяснений или комментариев к переводу.
-9. Например, если получишь "как на испанском правильно называется Диплом?", ты должен ответить "¿cómo se llama correctamente el Diploma en español?" - это просто перевод, а не ответ на вопрос.""",
-
-        "photo_translation": """Ты - переводчик испанского языка, специализирующийся на переводе текста с изображений.
+9. Например, если получишь "как на испанском правильно называется Диплом?", ты должен ответить "¿cómo se llama correctamente el Diploma en español?" - это просто перевод, а не ответ на вопрос."""
+            elif key == "photo_translation":
+                st.session_state.system_prompts[key] = """Ты - переводчик испанского языка, специализирующийся на переводе текста с изображений.
 Твоя задача - распознать и перевести испанский текст на изображении на русский язык.
 
 ВАЖНЫЕ ПРАВИЛА:
@@ -330,7 +367,9 @@ if 'system_prompts' not in st.session_state:
 4. Если контекст изображения предоставлен, используй его для более точного перевода.
 5. Если текст нечеткий или неполный, укажи это и предложи наиболее вероятный перевод.
 6. Форматируй перевод таким образом, чтобы сохранить структуру оригинального текста."""
-    }
+            
+            # Сохраняем дефолтные промпты в файлы
+            save_prompt_to_file(filename, st.session_state.system_prompts[key])
 
 # Применяем CSS для адаптации к мобильным устройствам
 st.markdown("""
@@ -914,8 +953,10 @@ def display_settings():
     # Отображение системных промптов
     st.subheader("Системные промпты")
     
+    st.info("Системные промпты хранятся в отдельных файлах и могут быть отредактированы напрямую или через это приложение.")
+    
     with st.expander("Перевод с испанского на русский"):
-        st.text_area(
+        st.session_state.es_to_ru_prompt = st.text_area(
             "Системный промпт для перевода с испанского на русский:", 
             st.session_state.system_prompts["es_to_ru"],
             height=100,
@@ -923,7 +964,7 @@ def display_settings():
         )
     
     with st.expander("Перевод с русского на испанский"):
-        st.text_area(
+        st.session_state.ru_to_es_prompt = st.text_area(
             "Системный промпт для перевода с русского на испанский:", 
             st.session_state.system_prompts["ru_to_es"],
             height=200,
@@ -931,7 +972,7 @@ def display_settings():
         )
     
     with st.expander("Перевод фото/скриншота"):
-        st.text_area(
+        st.session_state.photo_translation_prompt = st.text_area(
             "Системный промпт для перевода фото/скриншота:", 
             st.session_state.system_prompts["photo_translation"],
             height=300,
@@ -940,10 +981,25 @@ def display_settings():
     
     # Сохранение системных промптов
     if st.button("Сохранить системные промпты"):
+        # Сохраняем промпты в session_state
         st.session_state.system_prompts["es_to_ru"] = st.session_state.es_to_ru_prompt
         st.session_state.system_prompts["ru_to_es"] = st.session_state.ru_to_es_prompt
         st.session_state.system_prompts["photo_translation"] = st.session_state.photo_translation_prompt
-        st.success("Системные промпты сохранены!")
+        
+        # Сохраняем промпты в файлы
+        success_es_to_ru = save_prompt_to_file(PROMPT_FILES["es_to_ru"], st.session_state.es_to_ru_prompt)
+        success_ru_to_es = save_prompt_to_file(PROMPT_FILES["ru_to_es"], st.session_state.ru_to_es_prompt)
+        success_photo = save_prompt_to_file(PROMPT_FILES["photo_translation"], st.session_state.photo_translation_prompt)
+        
+        if success_es_to_ru and success_ru_to_es and success_photo:
+            st.success("Системные промпты сохранены в файлы и применены в приложении!")
+        else:
+            st.error("Произошла ошибка при сохранении одного или нескольких промптов. Проверьте права доступа к файлам.")
+            st.session_state.system_prompts = {
+                "es_to_ru": load_prompt_from_file(PROMPT_FILES["es_to_ru"]) or st.session_state.system_prompts["es_to_ru"],
+                "ru_to_es": load_prompt_from_file(PROMPT_FILES["ru_to_es"]) or st.session_state.system_prompts["ru_to_es"],
+                "photo_translation": load_prompt_from_file(PROMPT_FILES["photo_translation"]) or st.session_state.system_prompts["photo_translation"]
+            }
 
 # Обновляем основную функцию для отображения приложения
 def main():

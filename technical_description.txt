@@ -243,7 +243,11 @@ Refer to our docs page for more information.
 
 ***
 
-
+Я создал три файла:
+sys_prompt_es_to_ru.txt
+sys_prompt_photo_translation.txt
+sys_prompt_ru_to_es.txt
+Ты можешь перенести в них системные промпты.
 
 ***
 
