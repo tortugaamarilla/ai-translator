@@ -824,6 +824,7 @@ def display_es_to_ru():
             st.session_state.es_to_ru_translation = None
             st.session_state.es_to_ru_debug_info = None
             st.session_state.es_to_ru_parsed_variants = None
+            st.session_state.es_to_ru_text = ""  # Очищаем введенный текст
             st.rerun()
     
     # Добавляем чекбокс для отображения отладочной информации В КОНЦЕ
@@ -926,6 +927,7 @@ def display_ru_to_es():
             st.session_state.ru_to_es_translation = None
             st.session_state.ru_to_es_debug_info = None
             st.session_state.ru_to_es_parsed_variants = None
+            st.session_state.ru_to_es_text = ""  # Очищаем введенный текст
             st.rerun()
     
     # Добавляем чекбокс для отображения отладочной информации В КОНЦЕ
@@ -1238,6 +1240,7 @@ def display_photo_translation():
         if st.button("🔄 Новый перевод", key="new_translation_photo"):
             st.session_state.photo_translation = None
             st.session_state.photo_debug_info = None
+            st.session_state.photo_context = ""  # Очищаем поле контекста
             st.rerun()
     
     # Добавляем чекбокс для отображения отладочной информации В КОНЦЕ
