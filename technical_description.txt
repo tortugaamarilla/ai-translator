@@ -474,18 +474,32 @@ Hago como me dijiste.
 
 Давай реализуем эти изменения.
 
+***
+
+Эта версия работает нормально. Но хотелось бы сделать следующее для экономии входных токенов. Пусть при первой генерации переводов ИИ отправляет лишь ту информацию, которую пользователь видит на экране, т. е. список переводов с краткими пояснениями. А если пользователь разворачивает какой-то перевод, это действие вызывает отправку отдельного запроса по API на генерацию дополнительной информации, которая появляется после разворачивания перевода. Для этого нужно создать второй системный промпт в отдельном файле, который ты можешь назвать sys_prompt_es_to_ru_extra.txt
+И убери совсем возможность озвучивания и копирования из раздела "испанский-русский".
 
 ***
 
-
+Sobre - sustantivo (envelope), preposición (on, about), verbo (conjugación de "sobrar")
+Canto - sustantivo (borde de algo), sustantivo (canción), verbo (primera persona de "cantar")
+Llama - sustantivo (animal), sustantivo (fuego), verbo (tercera persona de "llamar")
+Cura - sustantivo (sacerdote), verbo (tercera persona de "curar")
+Pico - sustantivo (parte de ave), sustantivo (herramienta), verbo (primera persona de "picar")
+Caza - sustantivo (actividad de cazar), verbo (tercera persona de "cazar")
+Pesca - sustantivo (actividad), verbo (tercera persona de "pescar")
+Sala - sustantivo (habitación), verbo (tercera persona de "salar")
+Corte - sustantivo (filo), sustantivo (tribunal), verbo (imperativo o subjuntivo de "cortar")
+Cava - sustantivo (vino espumoso), verbo (tercera persona de "cavar")
+Tapa - sustantivo (cubierta), verbo (tercera persona de "tapar")
+Mando - sustantivo (control), verbo (primera persona de "mandar")
+Cerca - sustantivo (vallado), adverbio (próximo), verbo (tercera persona de "cercar")
+Guía - sustantivo (manual/persona), verbo (tercera persona de "guiar")
+Mina - sustantivo (excavación/explosivo), verbo (tercera persona de "minar")
 
 ***
 
-
-
-***
-
-
+Программа работает неправильно. Вместо того, чтобы сразу вывести весь список всех возможных вариантов перевода с краткими пояснениями, приложение после вывода первого варианта перевода (первого элемента списка вариантов переводов) генерирует подробное описание с примерами для этого варианта и выводит его, затем только выводит второй вариант списка - и так всё равно загружает все данные без необходимости и действий пользователя. Никакой экономии токенов в этом случае не возникает, кроме того это снижает удобство работы с программой, поскольку очень много времени уходит на генерацию всего ответа в таком объёме.
 
 ***
 

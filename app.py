@@ -77,7 +77,7 @@ div[data-testid="stVerticalBlock"] > div {
 /* Убираем все отступы сверху у всех возможных контейнеров */
 .stApp, 
 .main,
-.block-container, 
+.block-container,
 .css-1d391kg,
 .css-18e3th9,
 .css-1wyom9d,
@@ -292,6 +292,7 @@ def save_prompt_to_file(filename, content):
 # Пути к файлам промптов
 PROMPT_FILES = {
     "es_to_ru": "sys_prompt_es_to_ru.txt",
+    "es_to_ru_extra": "sys_prompt_es_to_ru_extra.txt",
     "ru_to_es": "sys_prompt_ru_to_es.txt",
     "ru_to_es_one_option": "sys_prompt_ru_to_es_one_option.txt",
     "ru_to_es_several_options": "sys_prompt_ru_to_es_several_options.txt",
@@ -325,9 +326,6 @@ if 'current_screen' not in st.session_state:
 
 if 'use_multiple_variants' not in st.session_state:
     st.session_state.use_multiple_variants = True
-
-if 'es_to_ru_use_multiple_variants' not in st.session_state:
-    st.session_state.es_to_ru_use_multiple_variants = True
 
 # Загрузка системных промптов из файлов
 if 'system_prompts' not in st.session_state:
@@ -637,8 +635,18 @@ def translate_text(text, from_lang, to_lang):
         debug_info["multiple_variants"] = use_multiple_variants
     
     # Улучшенное форматирование текста для перевода
-    # Заключаем текст в кавычки и явно указываем, что это текст для перевода
-    formatted_text = f'Переведи следующий текст (заключённый в кавычки): "{text.strip()}"'
+    if from_lang == 'es' and to_lang == 'ru':
+        # Для испанско-русского явно указываем, что нужен только базовый перевод без деталей и примеров
+        formatted_text = f'''Переведи следующий текст (заключённый в кавычки): "{text.strip()}"
+
+ВАЖНО: Это начальный запрос, предоставь ТОЛЬКО список вариантов перевода с краткими пояснениями.
+НЕ ДОБАВЛЯЙ подробные описания и примеры использования в ответ. Эта информация будет запрошена 
+отдельно, только если пользователь выберет конкретный вариант.'''
+    else:
+        # Для других направлений используем обычный формат
+        formatted_text = f'Переведи следующий текст (заключённый в кавычки): "{text.strip()}"'
+    
+    debug_info["formatted_text"] = formatted_text
     
     # Выбор модели для перевода
     if st.session_state.ai_model == "Claude 3.7 Sonnet":
@@ -735,6 +743,8 @@ def display_es_to_ru():
         st.session_state.es_to_ru_debug_info = None
     if 'es_to_ru_parsed_variants' not in st.session_state:
         st.session_state.es_to_ru_parsed_variants = None
+    if 'test_extra_info_result' not in st.session_state:
+        st.session_state.test_extra_info_result = None
     
     # Поле ввода текста на испанском
     spanish_text = st.text_area("Введите текст на испанском", height=150, key="es_ru_input", 
@@ -764,26 +774,65 @@ def display_es_to_ru():
     if st.session_state.es_to_ru_parsed_variants and len(st.session_state.es_to_ru_parsed_variants) > 0:
         # Отображаем структурированный результат для короткой фразы/слова
         display_structured_translation(st.session_state.es_to_ru_parsed_variants, direction="es_to_ru")
+        
+        # Добавляем тестовую секцию для проверки API-запроса дополнительной информации
+        with st.expander("🔍 Тестирование API-запроса для дополнительной информации"):
+            st.info("Эта секция позволяет проверить, как работает отдельный запрос для получения дополнительной информации.")
+            
+            # Выбор варианта для тестирования
+            variant_options = [f"{v['text']} ({v['explanation']})" for v in st.session_state.es_to_ru_parsed_variants]
+            selected_variant_index = st.selectbox("Выберите вариант для тестирования:", 
+                                                 range(len(variant_options)), 
+                                                 format_func=lambda i: variant_options[i])
+            
+            if st.button("Запросить дополнительную информацию", key="test_extra_info"):
+                selected_variant = st.session_state.es_to_ru_parsed_variants[selected_variant_index]
+                with st.spinner("Загрузка тестовой информации..."):
+                    details, examples, debug_info = get_translation_details(
+                        selected_variant['text'], 
+                        selected_variant['explanation']
+                    )
+                    
+                    # Сохраняем результат теста
+                    st.session_state.test_extra_info_result = {
+                        "variant": selected_variant,
+                        "details": details,
+                        "examples": examples,
+                        "debug_info": debug_info
+                    }
+            
+            # Отображаем результат тестового запроса
+            if st.session_state.test_extra_info_result:
+                st.subheader("Результат тестового запроса")
+                
+                test_result = st.session_state.test_extra_info_result
+                
+                # Отображаем детали
+                if test_result["details"]:
+                    st.markdown("##### Подробная информация")
+                    st.markdown(test_result["details"])
+                
+                # Отображаем примеры
+                if test_result["examples"]:
+                    st.markdown("##### Примеры использования")
+                    st.markdown(test_result["examples"])
+                
+                # Отображаем отладочную информацию
+                st.markdown("##### Отладочная информация")
+                st.json(test_result["debug_info"])
+    
     # Отображаем обычный результат перевода для предложений
     elif st.session_state.es_to_ru_translation:
-        # Создаем контейнер для результата с кнопками
+        # Создаем контейнер для результата
         result_container = st.container()
         
         with result_container:
-            # Отображаем результат сначала
+            # Отображаем результат
             st.markdown(f"""
             <div class="translation-result">
                 {st.session_state.es_to_ru_translation}
             </div>
             """, unsafe_allow_html=True)
-            
-            # Блок с кнопками управления ПОД результатом
-            action_cols = st.columns([7, 1, 1])
-            with action_cols[1]:
-                st.button("📋", key="copy_es_ru_inside", help="Копировать перевод")
-            with action_cols[2]:
-                if st.button("🔊", key="speak_es_ru_inside", help="Озвучить перевод"):
-                    text_to_speech(st.session_state.es_to_ru_translation)
     
     # Кнопка для сброса результатов
     if st.session_state.es_to_ru_translation:
@@ -791,6 +840,7 @@ def display_es_to_ru():
             st.session_state.es_to_ru_translation = None
             st.session_state.es_to_ru_debug_info = None
             st.session_state.es_to_ru_parsed_variants = None
+            st.session_state.test_extra_info_result = None
             st.session_state.es_to_ru_text = ""  # Очищаем введенный текст
             st.rerun()
     
@@ -800,6 +850,23 @@ def display_es_to_ru():
     # Отображение отладочной информации
     if show_debug and st.session_state.es_to_ru_debug_info:
         st.subheader("Отладочная информация:")
+        # Добавляем информацию о количестве и составе вариантов перевода
+        if st.session_state.es_to_ru_parsed_variants:
+            variants_info = []
+            for i, variant in enumerate(st.session_state.es_to_ru_parsed_variants):
+                variant_info = {
+                    "номер": i+1,
+                    "текст": variant.get('text', ''),
+                    "пояснение": variant.get('explanation', ''),
+                    "загружены_детали": variant.get('details_loaded', False),
+                    "длина_деталей": len(variant.get('details', '')),
+                    "длина_примеров": len(variant.get('examples', '')),
+                    "ключи": list(variant.keys())
+                }
+                variants_info.append(variant_info)
+            
+            st.session_state.es_to_ru_debug_info["variants_info"] = variants_info
+        
         st.json(st.session_state.es_to_ru_debug_info)
 
 # Функция для отображения экрана перевода с русского на испанский
@@ -909,7 +976,7 @@ def display_ru_to_es():
 def parse_translation_variants(translation_text):
     """
     Парсит структурированный ответ от модели и возвращает список вариантов перевода
-    с их пояснениями, подробностями и примерами использования.
+    с их пояснениями. Подробности и примеры загружаются отдельно при необходимости.
     """
     if not translation_text:
         return []
@@ -922,8 +989,11 @@ def parse_translation_variants(translation_text):
     # Ищем варианты переводов с новой структурой
     variant_pattern = re.compile(r'```вариант-(\d+)\n(.*?)```', re.DOTALL)
     explanation_pattern = re.compile(r'```пояснение-(\d+)\n(.*?)```', re.DOTALL)
-    details_pattern = re.compile(r'```подробности-(\d+)\n(.*?)```', re.DOTALL)
-    examples_pattern = re.compile(r'```примеры-(\d+)\n(.*?)```', re.DOTALL)
+    
+    # Проверяем, содержит ли ответ форматированные варианты
+    if '```вариант-' not in translation_text:
+        # Если нет форматированных вариантов, это обычный перевод предложения
+        return []
     
     # Ищем все варианты перевода
     variant_matches = variant_pattern.findall(translation_text)
@@ -932,10 +1002,8 @@ def parse_translation_variants(translation_text):
     if not variant_matches:
         return []
     
-    # Получаем все пояснения, подробности и примеры
+    # Получаем все пояснения
     explanation_matches = {num: text.strip() for num, text in explanation_pattern.findall(translation_text)}
-    details_matches = {num: text.strip() for num, text in details_pattern.findall(translation_text)}
-    examples_matches = {num: text.strip() for num, text in examples_pattern.findall(translation_text)}
     
     # Формируем структуру данных с вариантами
     for num, text in variant_matches:
@@ -943,18 +1011,20 @@ def parse_translation_variants(translation_text):
             "number": num,
             "text": text.strip(),
             "explanation": explanation_matches.get(num, ""),
-            "details": details_matches.get(num, ""),
-            "examples": examples_matches.get(num, "")
+            "details_loaded": False  # Флаг, показывающий, что дополнительные данные не загружены
         }
         variants.append(variant)
+    
+    # Выводим отладочный лог о количестве найденных вариантов
+    print(f"Найдено {len(variants)} вариантов перевода в исходном ответе API")
     
     return variants
 
 # Функция для отображения структурированного перевода с вариантами
 def display_structured_translation(variants, direction="es_to_ru"):
     """
-    Отображает структурированный перевод с разными вариантами, пояснениями, 
-    подробностями и примерами использования с возможностью разворачивания.
+    Отображает структурированный перевод с разными вариантами и пояснениями.
+    Подробности и примеры подгружаются только при нажатии на кнопку "Подробнее".
     
     Parameters:
         variants: список вариантов перевода
@@ -968,20 +1038,17 @@ def display_structured_translation(variants, direction="es_to_ru"):
         border-radius: 5px;
         padding: 15px;
         margin-bottom: 10px;
-        cursor: pointer;
-        transition: background-color 0.3s;
-    }
-    .variant-item:hover {
-        background-color: #f5f5f5;
+        background-color: #f9f9f9;
     }
     .variant-translation {
         font-size: 1.2rem;
         font-weight: bold;
+        margin-bottom: 8px;
     }
     .variant-explanation {
         color: #666;
         font-size: 0.9rem;
-        margin-top: 5px;
+        margin-bottom: 10px;
     }
     .example-block {
         margin-bottom: 10px;
@@ -997,100 +1064,175 @@ def display_structured_translation(variants, direction="es_to_ru"):
     </style>
     """, unsafe_allow_html=True)
     
+    # Инициализация ключа выбранного варианта в session_state, если его нет
+    selected_key = f"selected_variant_{direction}"
+    if selected_key not in st.session_state:
+        st.session_state[selected_key] = None
+    
+    # Отображаем заголовок
+    st.markdown(f"### Варианты перевода ({len(variants)})")
+    
     # Отображаем список вариантов перевода
     for i, variant in enumerate(variants):
         # Создаем уникальный ключ для каждого варианта
         variant_key = f"variant_{variant['number']}_{i}"
         
-        # Отображаем основной вариант перевода и краткое пояснение
-        expander = st.expander(
-            label=f"{variant['text']} ({variant['explanation']})",
-            expanded=False
-        )
+        # Создаем контейнер для каждого варианта
+        st.markdown(f"""
+        <div class="variant-item">
+            <div class="variant-translation">{variant['text']}</div>
+            <div class="variant-explanation">{variant['explanation']}</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # При разворачивании показываем подробную информацию
-        with expander:
-            # Подробное описание
-            if variant['details']:
-                st.markdown("##### Подробнее")
-                st.markdown(variant['details'])
-            
-            # Примеры использования
-            if variant['examples']:
-                st.markdown("##### Примеры использования")
-                
-                # Обрабатываем примеры, разделяя их на предложения и переводы
-                example_lines = variant['examples'].strip().split('\n')
-                
-                # Удаляем пустые строки и убираем маркеры списка
-                example_lines = [line[2:] if line.startswith('- ') else line for line in example_lines if line.strip()]
-                
-                # Отображаем примеры попарно (предложение + перевод)
-                i = 0
-                while i < len(example_lines):
-                    if i + 1 < len(example_lines):
-                        example = example_lines[i]
-                        translation = example_lines[i + 1]
-                        
-                        # Используем markdown для примера на испанском
-                        st.markdown(example)
-                        
-                        # Стилизованный перевод на русский
-                        st.markdown(f"<div class='example-translation'>{translation}</div>", unsafe_allow_html=True)
-                        
-                        i += 2
-                    else:
-                        # Если осталась одна строка без пары
-                        st.markdown(example_lines[i])
-                        i += 1
-            
-            # Добавляем кнопки для копирования и озвучивания
-            cols = st.columns([7, 1, 1])
-            with cols[1]:
-                copy_key = f"copy_{variant_key}"
-                st.button("📋", key=copy_key, help="Копировать этот вариант", on_click=None)
-            
+        # Кнопки действий для этого варианта
+        cols = st.columns([3, 3, 1, 1])
+        
+        # Кнопка "Подробнее" (только для испанско-русского направления)
+        if direction == "es_to_ru":
+            with cols[0]:
+                details_btn_key = f"details_{variant_key}"
+                if st.button("🔍 Подробнее", key=details_btn_key):
+                    st.session_state[selected_key] = variant_key
+        
+        # Кнопки для русско-испанского направления
+        if direction == "ru_to_es":
             with cols[2]:
+                copy_key = f"copy_{variant_key}"
+                st.button("📋", key=copy_key, help="Копировать этот вариант")
+            
+            with cols[3]:
                 speak_key = f"speak_{variant_key}" 
                 if st.button("🔊", key=speak_key, help="Озвучить этот вариант"):
                     text_to_speech(variant['text'])
     
-    # JavaScript для копирования текста
-    st.markdown("""
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Находим все кнопки копирования вариантов
-        const copyButtons = document.querySelectorAll('button[data-testid*="copy_variant_"]');
-        copyButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                // Ищем ближайший текст варианта
-                const variantText = this.closest('.streamlit-expanderContent')
-                    .previousElementSibling
-                    .querySelector('.streamlit-expanderHeader-text')
-                    .textContent.split(' (')[0];
+    # Если выбран вариант для отображения подробностей
+    if st.session_state[selected_key] is not None:
+        # Находим выбранный вариант
+        selected_variant_key = st.session_state[selected_key]
+        
+        # Извлекаем номер варианта из ключа
+        selected_index = None
+        for i, variant in enumerate(variants):
+            if f"variant_{variant['number']}_{i}" == selected_variant_key:
+                selected_index = i
+                break
+        
+        if selected_index is not None:
+            selected_variant = variants[selected_index]
+            
+            # Создаем контейнер для подробной информации
+            details_container = st.container()
+            
+            with details_container:
+                st.markdown("---")
+                st.markdown(f"### Подробная информация о варианте \"{selected_variant['text']}\"")
                 
-                navigator.clipboard.writeText(variantText)
-                    .then(() => {
-                        Toastify({
-                            text: "Вариант скопирован!",
-                            duration: 2000,
-                            close: false,
-                            gravity: "bottom",
-                            position: "center",
-                            stopOnFocus: true,
-                            style: {
-                                background: "linear-gradient(to right, #00b09b, #96c93d)",
-                            }
-                        }).showToast();
-                    })
-                    .catch(err => {
-                        console.error("Ошибка при копировании: ", err);
-                    });
+                # Проверяем, загружены ли уже подробности
+                if not selected_variant.get('details_loaded', False):
+                    with st.spinner("Загружаем дополнительную информацию..."):
+                        details, examples, debug_info = get_translation_details(
+                            selected_variant['text'], 
+                            selected_variant['explanation']
+                        )
+                        
+                        # Сохраняем полученные данные в вариант
+                        if 'details' not in selected_variant:
+                            selected_variant['details'] = ''
+                        if 'examples' not in selected_variant:
+                            selected_variant['examples'] = ''
+                        
+                        selected_variant['details'] = details
+                        selected_variant['examples'] = examples
+                        selected_variant['details_loaded'] = True
+                        selected_variant['details_debug_info'] = debug_info
+                
+                # Отображаем подробности
+                if selected_variant.get('details', ''):
+                    st.markdown("#### Подробнее")
+                    st.markdown(selected_variant['details'])
+                
+                # Отображаем примеры использования
+                if selected_variant.get('examples', ''):
+                    st.markdown("#### Примеры использования")
+                    
+                    # Обрабатываем примеры, разделяя их на предложения и переводы
+                    example_lines = selected_variant['examples'].strip().split('\n')
+                    
+                    # Удаляем пустые строки и убираем маркеры списка
+                    example_lines = [line[2:] if line.startswith('- ') else line for line in example_lines if line.strip()]
+                    
+                    # Отображаем примеры попарно (предложение + перевод)
+                    i = 0
+                    while i < len(example_lines):
+                        if i + 1 < len(example_lines):
+                            example = example_lines[i]
+                            translation = example_lines[i + 1]
+                            
+                            # Используем markdown для примера на испанском
+                            st.markdown(example)
+                            
+                            # Стилизованный перевод на русский
+                            st.markdown(f"<div class='example-translation'>{translation}</div>", unsafe_allow_html=True)
+                            
+                            i += 2
+                        else:
+                            # Если осталась одна строка без пары
+                            st.markdown(example_lines[i])
+                            i += 1
+                
+                # Кнопка "Вернуться к списку вариантов"
+                if st.button("← Вернуться к списку вариантов", key="back_to_variants"):
+                    st.session_state[selected_key] = None
+                    st.rerun()
+    
+    # Отладочная информация для проверки работы механизма
+    if st.checkbox("Показать состояние загрузки данных", key=f"debug_loaded_state_{direction}"):
+        data_state = {}
+        for i, variant in enumerate(variants):
+            data_state[f"Вариант {i+1} ({variant['text']})"] = {
+                "details_loaded": variant.get('details_loaded', False),
+                "details_length": len(variant.get('details', '')),
+                "examples_length": len(variant.get('examples', ''))
+            }
+        st.write("Состояние загрузки дополнительной информации:")
+        st.json(data_state)
+    
+    # JavaScript для копирования текста только для русско-испанского направления
+    if direction == "ru_to_es":
+        st.markdown("""
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Находим все кнопки копирования вариантов
+            const copyButtons = document.querySelectorAll('button[data-testid*="copy_variant_"]');
+            copyButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Ищем ближайший текст варианта
+                    const variantItem = this.closest('.row-widget').parentElement.previousElementSibling;
+                    const variantText = variantItem.querySelector('.variant-translation').textContent;
+                    
+                    navigator.clipboard.writeText(variantText)
+                        .then(() => {
+                            Toastify({
+                                text: "Вариант скопирован!",
+                                duration: 2000,
+                                close: false,
+                                gravity: "bottom",
+                                position: "center",
+                                stopOnFocus: true,
+                                style: {
+                                    background: "linear-gradient(to right, #00b09b, #96c93d)",
+                                }
+                            }).showToast();
+                        })
+                        .catch(err => {
+                            console.error("Ошибка при копировании: ", err);
+                        });
+                });
             });
         });
-    });
-    </script>
-    """, unsafe_allow_html=True)
+        </script>
+        """, unsafe_allow_html=True)
 
 # Функция для отображения экрана перевода фото/скриншота
 def display_photo_translation():
@@ -1300,6 +1442,82 @@ def display_settings():
         
         st.subheader("Отладочная информация о настройках:")
         st.json(debug_info)
+
+# Функция для получения дополнительной информации о варианте перевода
+def get_translation_details(word, explanation):
+    """
+    Запрашивает подробную информацию о конкретном варианте перевода
+    
+    Parameters:
+        word (str): Слово или фраза на испанском
+        explanation (str): Пояснение к слову или фразе из первого запроса
+        
+    Returns:
+        tuple: (подробности, примеры, отладочная_информация)
+    """
+    if not word:
+        return "", "", {"error": "Не указано слово для запроса дополнительной информации"}
+    
+    # Добавляем отладочную информацию
+    debug_info = {}
+    
+    # Получаем системный промпт для дополнительной информации
+    system_prompt = st.session_state.system_prompts["es_to_ru_extra"]
+    
+    # Формируем запрос к модели, явно указывая, что это повторный запрос для дополнительной информации
+    formatted_text = f'''Это отдельный запрос для получения ТОЛЬКО дополнительной информации о варианте перевода.
+Слово/фраза: "{word}"
+Краткое пояснение: "{explanation}"
+
+Пользователь выбрал этот вариант и хочет получить подробную информацию о нём.
+'''
+    
+    debug_info["word"] = word
+    debug_info["explanation"] = explanation
+    debug_info["system_prompt"] = system_prompt
+    debug_info["formatted_text"] = formatted_text
+    
+    try:
+        # Прямой вызов API Anthropic
+        result = call_anthropic_api_directly(formatted_text, system_prompt)
+        
+        # Обработка ошибок
+        if result.get("error"):
+            debug_info["error"] = result["error"]
+            return "", "", debug_info
+        
+        # Извлекаем подробности и примеры из ответа
+        response_text = result["response"]
+        
+        # Регулярные выражения для извлечения подробностей и примеров
+        import re
+        details_pattern = re.compile(r'```подробности\n(.*?)```', re.DOTALL)
+        examples_pattern = re.compile(r'```примеры\n(.*?)```', re.DOTALL)
+        
+        # Извлекаем данные
+        details_match = details_pattern.search(response_text)
+        examples_match = examples_pattern.search(response_text)
+        
+        details = details_match.group(1).strip() if details_match else ""
+        examples = examples_match.group(1).strip() if examples_match else ""
+        
+        # Если не удалось найти разметку, можно использовать весь ответ как подробности
+        if not details and not examples and response_text.strip():
+            details = response_text.strip()
+        
+        # Сохраняем модель в отладочную информацию
+        debug_info["model_used"] = result["model"]
+        debug_info["response"] = response_text
+        
+        # Логгируем успешное получение дополнительной информации
+        print(f"Получена дополнительная информация для варианта '{word}': {len(details)} символов подробностей, {len(examples)} символов примеров")
+        
+        return details, examples, debug_info
+        
+    except Exception as e:
+        error_msg = f"Ошибка при получении дополнительной информации: {str(e)}"
+        debug_info["error"] = error_msg
+        return "", "", debug_info
 
 # Обновляем основную функцию для отображения приложения
 def main():
