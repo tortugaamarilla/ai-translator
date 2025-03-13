@@ -34,7 +34,69 @@ st.markdown('''
     padding-right: 1rem !important;
     padding-left: 1rem !important;
     max-width: 100% !important;
-    margin-top: -3rem !important;
+    margin-top: -5rem !important;  /* Еще сильнее поднимаем вверх */
+}
+
+/* Специальный стиль для первого textarea в форме */
+.stApp .element-container:first-child .stTextArea textarea, 
+.stApp .stTextArea:first-of-type textarea {
+    min-height: 150px !important;
+    resize: vertical !important;
+    margin-top: 0 !important;
+}
+
+/* Восстанавливаем стандартные параметры для всех textarea */
+.stTextArea textarea {
+    min-height: 150px !important;
+    height: auto !important;
+    line-height: 1.3 !important;
+    padding: 8px !important;
+}
+
+/* Делаем метки компактнее */
+.stTextArea label, .stTextInput label {
+    transform: translateY(-5px) !important;
+    font-size: 0.65rem !important;
+    opacity: 0.7 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+}
+
+/* Убираем все отступы у всех элементов */
+div[data-testid="stVerticalBlock"] > div {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* Супер компактные чекбоксы */
+.stCheckbox > div {
+    height: 20px !important;
+    margin: 0 !important;
+}
+
+/* Минимальная высота для кнопок */
+.stButton button {
+    height: 30px !important;
+    min-height: unset !important;
+    line-height: 1 !important;
+    margin: 5px 0 !important;
+}
+
+/* Суперкомпактный режим для всех элементов */
+.stApp .element-container {
+    margin-bottom: 5px !important;
+}
+
+/* Убираем навигационную панель сверху */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+
+/* Поднимаем первую форму вверх */
+.stApp form:first-of-type {
+    margin-top: -20px !important;
 }
 
 /* Убираем отступы у всех блоков */
@@ -45,15 +107,16 @@ st.markdown('''
 /* Убираем отступы у текстовых полей сверху */
 .stTextArea, .stTextInput {
     padding-top: 0 !important;
-    margin-top: 0 !important;
+    margin-top: -1rem !important;  /* Делаем отрицательным для подъема выше */
 }
 
 /* Уменьшаем отступы у label текстовых полей */
 .stTextArea label, .stTextInput label {
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
-    font-size: 0.8rem !important;
+    font-size: 0.7rem !important;  /* Уменьшаем размер шрифта метки */
     line-height: 1 !important;
+    opacity: 0.8 !important;  /* Делаем метку менее заметной */
 }
 
 /* Убираем все отступы у всех элементов */
@@ -71,7 +134,7 @@ div[data-testid="stVerticalBlock"] > div {
 /* Все элементы поднимаем вверх */
 .st-emotion-cache-1y4p8pa {
     padding-top: 0 !important;
-    margin-top: -2rem !important;
+    margin-top: -3rem !important;  /* Увеличиваем отрицательный отступ */
 }
 
 /* Убираем все отступы сверху у всех возможных контейнеров */
@@ -103,12 +166,11 @@ div[data-testid="stHorizontalBlock"] {
     }
 }
 
-/* Стили для элементов перевода */
+/* Стили для элементов перевода - убираем рамку и фон */
 .translation-result {
-    border: 1px solid #e0e0e0;
-    border-radius: 5px;
-    padding: 15px;
-    margin-top: 15px;
+    padding: 2px 0 !important;
+    margin-top: 2px !important;
+    line-height: 1.2 !important;
 }
 
 /* Стили для индикатора режима в правом верхнем углу */
@@ -138,7 +200,7 @@ button[data-testid*="more_variant_"], button[data-testid*="hide_variant_"] {
     text-align: right !important;
     float: right !important;
     box-shadow: none !important;
-    margin-bottom: 10px !important;
+    margin-bottom: 5px !important;
 }
 button[data-testid*="more_variant_"]:hover, button[data-testid*="hide_variant_"]:hover {
     color: #555 !important;
@@ -149,6 +211,45 @@ button[data-testid*="more_variant_"]:focus, button[data-testid*="hide_variant_"]
 button[data-testid*="more_variant_"]:active, button[data-testid*="hide_variant_"]:active {
     box-shadow: none !important;
     outline: none !important;
+}
+
+/* Дополнительные супер-компактные стили */
+.stButton {
+    margin-top: 0.1rem !important;
+    margin-bottom: 0.1rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+.stButton button {
+    padding: 0.1rem 0.5rem !important;
+    min-height: 0 !important;
+    line-height: 1.2 !important;
+}
+
+.stCheckbox {
+    margin-top: 0.1rem !important;
+    margin-bottom: 0.1rem !important;
+}
+
+/* Уменьшаем отступы в выпадающих списках */
+.stSelectbox {
+    margin-top: 0.1rem !important;
+    margin-bottom: 0.1rem !important;
+}
+
+/* Максимально уменьшаем отступы между всеми элементами */
+* {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* Удаляем отступы у заголовков */
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 0.2rem !important;
+    margin-bottom: 0.2rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
 }
 </style>
 ''', unsafe_allow_html=True)
@@ -281,13 +382,77 @@ document.addEventListener('DOMContentLoaded', function() {
             el.style.paddingTop = '0px';
             el.style.marginTop = '0px';
         }
+        if (parseInt(style.paddingBottom) > 0 || parseInt(style.marginBottom) > 0) {
+            el.style.paddingBottom = '0px';
+            el.style.marginBottom = '0px';
+        }
     });
     
     // Особое внимание к первому текстовому полю - делаем отрицательный отступ
     const firstTextArea = document.querySelector('.stTextArea');
     if (firstTextArea) {
-        firstTextArea.style.marginTop = '-1rem';
+        firstTextArea.style.marginTop = '-1.5rem';
     }
+    
+    // Находим все кнопки и делаем их компактнее
+    const allButtons = document.querySelectorAll('button');
+    allButtons.forEach(btn => {
+        btn.style.padding = '0.15rem 0.5rem';
+        btn.style.minHeight = 'unset';
+        btn.style.height = 'auto';
+    });
+    
+    // Находим все метки и делаем их меньше
+    const allLabels = document.querySelectorAll('label');
+    allLabels.forEach(label => {
+        label.style.fontSize = '0.65rem';
+        label.style.opacity = '0.7';
+        label.style.lineHeight = '1';
+        label.style.padding = '0';
+        label.style.margin = '0';
+    });
+    
+    // Компактные текстовые поля, но без изменения основного поля ввода
+    const allTextareas = document.querySelectorAll('textarea');
+    allTextareas.forEach(ta => {
+        // Не меняем высоту, только настраиваем отступы
+        ta.style.padding = '8px';
+        ta.style.lineHeight = '1.3';
+    });
+    
+    // Удаляем отступы у результатов перевода
+    const translationResults = document.querySelectorAll('.translation-result');
+    translationResults.forEach(tr => {
+        tr.style.padding = '0';
+        tr.style.margin = '0';
+    });
+    
+    // Компактные вариантные переводы
+    const variantItems = document.querySelectorAll('.variant-item');
+    variantItems.forEach(vi => {
+        vi.style.padding = '0';
+        vi.style.margin = '0';
+    });
+    
+    // Функция сжатия интерфейса после каждого клика
+    function compressUI() {
+        // Удаляем отступы у всех элементов
+        document.querySelectorAll('div').forEach(el => {
+            el.style.marginBottom = '0px';
+        });
+        
+        // Делаем кнопки еще компактнее
+        document.querySelectorAll('button').forEach(btn => {
+            btn.style.marginTop = '2px';
+            btn.style.marginBottom = '2px';
+        });
+    }
+    
+    // Добавляем обработчик для всех кнопок
+    document.body.addEventListener('click', compressUI);
+    
+    // Запускаем компрессию интерфейса при загрузке
+    compressUI();
 });
 </script>
 """, unsafe_allow_html=True)
@@ -773,7 +938,7 @@ def display_es_to_ru():
     if 'test_extra_info_result' not in st.session_state:
         st.session_state.test_extra_info_result = None
     
-    # Поле ввода текста на испанском
+    # Поле ввода текста на испанском с обычной высотой
     spanish_text = st.text_area("Введите текст на испанском", height=150, key="es_ru_input", 
                               value=st.session_state.es_to_ru_text)
     
@@ -910,7 +1075,7 @@ def display_ru_to_es():
     if 'use_multiple_variants' not in st.session_state:
         st.session_state.use_multiple_variants = True
     
-    # Поле ввода текста на русском
+    # Поле ввода текста на русском с обычной высотой
     russian_text = st.text_area("Введите текст на русском", height=150, key="ru_es_input", 
                                value=st.session_state.ru_to_es_text)
     
@@ -1061,21 +1226,20 @@ def display_structured_translation(variants, direction="es_to_ru"):
     st.markdown("""
     <style>
     .variant-item {
-        border: 1px solid #e0e0e0;
-        border-radius: 5px;
-        padding: 10px;
-        margin-bottom: 10px;
-        background-color: #f9f9f9;
+        padding: 2px 0 !important;
+        margin-bottom: 2px !important;
     }
     .variant-translation {
         font-size: 1.2rem;
         font-weight: bold;
-        margin-bottom: 5px;
+        margin-bottom: 0 !important;
+        line-height: 1.2 !important;
     }
     .variant-explanation {
         color: #666;
         font-size: 0.9rem;
-        margin-bottom: 5px;
+        margin-top: 0 !important;
+        line-height: 1.1 !important;
     }
     .details-container {
         border-left: 2px solid #ddd;
@@ -1115,8 +1279,8 @@ def display_structured_translation(variants, direction="es_to_ru"):
     </style>
     """, unsafe_allow_html=True)
     
-    # Отображаем заголовок
-    st.markdown(f"### Варианты перевода ({len(variants)})")
+    # Убираем заголовок с количеством вариантов
+    # st.markdown(f"### Варианты перевода ({len(variants)})")
     
     # Инициализируем session_state для отслеживания показанных вариантов
     if 'shown_details' not in st.session_state:
@@ -1233,9 +1397,9 @@ def display_structured_translation(variants, direction="es_to_ru"):
             # Закрываем div варианта
             st.markdown('</div>', unsafe_allow_html=True)
             
-            # Добавляем горизонтальную линию, кроме последнего элемента
-            if i < len(variants) - 1:
-                st.markdown('<hr style="margin: 10px 0; border: 0; height: 1px; background-color: #e0e0e0;">', unsafe_allow_html=True)
+            # Убираем горизонтальную линию между вариантами
+            # if i < len(variants) - 1:
+            #    st.markdown('<hr style="margin: 10px 0; border: 0; height: 1px; background-color: #e0e0e0;">', unsafe_allow_html=True)
     
     # JavaScript для копирования текста только для русско-испанского направления
     if direction == "ru_to_es":
