@@ -109,7 +109,6 @@ div[data-testid="stHorizontalBlock"] {
     border-radius: 5px;
     padding: 15px;
     margin-top: 15px;
-    background-color: #f9f9f9;
 }
 
 /* Стили для индикатора режима в правом верхнем углу */
@@ -1135,7 +1134,6 @@ def display_structured_translation(variants, direction="ru_to_es"):
                 border-radius: 5px;
                 padding: 15px;
                 margin-bottom: 10px;
-                background-color: #f9f9f9;
             }
             .variant-translation {
                 font-size: 1.2rem;
