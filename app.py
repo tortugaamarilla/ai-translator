@@ -292,8 +292,6 @@ def save_prompt_to_file(filename, content):
 # Пути к файлам промптов
 PROMPT_FILES = {
     "es_to_ru": "sys_prompt_es_to_ru.txt",
-    "es_to_ru_one_option": "sys_prompt_es_to_ru_one_option.txt",
-    "es_to_ru_several_options": "sys_prompt_es_to_ru_several_options.txt",
     "ru_to_es": "sys_prompt_ru_to_es.txt",
     "ru_to_es_one_option": "sys_prompt_ru_to_es_one_option.txt",
     "ru_to_es_several_options": "sys_prompt_ru_to_es_several_options.txt",
@@ -343,12 +341,7 @@ if 'system_prompts' not in st.session_state:
         else:
             st.error(f"Не удалось загрузить системный промпт из файла {filename}. Пожалуйста, проверьте наличие файла.")
             
-    # Синхронизируем промпты для es_to_ru и ru_to_es в зависимости от настроек вариантов
-    if st.session_state.es_to_ru_use_multiple_variants and "es_to_ru_several_options" in st.session_state.system_prompts:
-        st.session_state.system_prompts["es_to_ru"] = st.session_state.system_prompts["es_to_ru_several_options"]
-    elif "es_to_ru_one_option" in st.session_state.system_prompts:
-        st.session_state.system_prompts["es_to_ru"] = st.session_state.system_prompts["es_to_ru_one_option"]
-        
+    # Синхронизируем промпты для ru_to_es в зависимости от настроек вариантов
     if st.session_state.use_multiple_variants and "ru_to_es_several_options" in st.session_state.system_prompts:
         st.session_state.system_prompts["ru_to_es"] = st.session_state.system_prompts["ru_to_es_several_options"]
     elif "ru_to_es_one_option" in st.session_state.system_prompts:
@@ -630,7 +623,6 @@ def translate_text(text, from_lang, to_lang):
     if from_lang == 'es' and to_lang == 'ru':
         direction_key = 'es_to_ru'
         system_prompt = st.session_state.system_prompts["es_to_ru"]
-        use_multiple_variants = st.session_state.es_to_ru_use_multiple_variants
     elif from_lang == 'ru' and to_lang == 'es':
         direction_key = 'ru_to_es'
         system_prompt = st.session_state.system_prompts["ru_to_es"]
@@ -641,7 +633,8 @@ def translate_text(text, from_lang, to_lang):
     debug_info["direction"] = direction_key
     debug_info["system_prompt"] = system_prompt
     debug_info["input_text"] = text
-    debug_info["multiple_variants"] = use_multiple_variants
+    if from_lang == 'ru' and to_lang == 'es':
+        debug_info["multiple_variants"] = use_multiple_variants
     
     # Улучшенное форматирование текста для перевода
     # Заключаем текст в кавычки и явно указываем, что это текст для перевода
@@ -742,8 +735,6 @@ def display_es_to_ru():
         st.session_state.es_to_ru_debug_info = None
     if 'es_to_ru_parsed_variants' not in st.session_state:
         st.session_state.es_to_ru_parsed_variants = None
-    if 'es_to_ru_use_multiple_variants' not in st.session_state:
-        st.session_state.es_to_ru_use_multiple_variants = True
     
     # Поле ввода текста на испанском
     spanish_text = st.text_area("Введите текст на испанском", height=150, key="es_ru_input", 
@@ -752,37 +743,13 @@ def display_es_to_ru():
     # Сохраняем введенный текст в session_state
     st.session_state.es_to_ru_text = spanish_text
     
-    # Добавляем чекбокс для управления режимом вариантов перевода
-    previous_value = st.session_state.es_to_ru_use_multiple_variants
-    st.session_state.es_to_ru_use_multiple_variants = st.checkbox(
-        "Несколько вариантов переводов", 
-        value=st.session_state.es_to_ru_use_multiple_variants,
-        help="Если выбрано, то будет показано несколько вариантов перевода с комментариями и примерами для каждого варианта. Если не выбрано - только один вариант перевода без пояснений.",
-        key="es_to_ru_multiple_variants"
-    )
-    
-    # Если значение галочки изменилось, обновляем промпт
-    if previous_value != st.session_state.es_to_ru_use_multiple_variants:
-        if st.session_state.es_to_ru_use_multiple_variants:
-            st.session_state.system_prompts["es_to_ru"] = st.session_state.system_prompts["es_to_ru_several_options"]
-        else:
-            st.session_state.system_prompts["es_to_ru"] = st.session_state.system_prompts["es_to_ru_one_option"]
-        # Обновляем промпт в файле
-        save_prompt_to_file(PROMPT_FILES["es_to_ru"], st.session_state.system_prompts["es_to_ru"])
-    
     # Кнопка для перевода на всю ширину
     translate_button = st.button("Перевести", use_container_width=True, key="translate_es_ru")
     
     # Выполняем перевод при нажатии кнопки
     if spanish_text and translate_button:
         with st.spinner("Перевод..."):
-            # Обновляем системный промпт перед переводом на основе выбранного режима
-            if st.session_state.es_to_ru_use_multiple_variants:
-                st.session_state.system_prompts["es_to_ru"] = st.session_state.system_prompts["es_to_ru_several_options"]
-            else:
-                st.session_state.system_prompts["es_to_ru"] = st.session_state.system_prompts["es_to_ru_one_option"]
-            
-            # Выполняем перевод
+            # Выполняем перевод с единым промптом
             translation, debug_info = translate_text(spanish_text, 'es', 'ru')
             
             # Сохраняем результаты в session_state
@@ -942,7 +909,7 @@ def display_ru_to_es():
 def parse_translation_variants(translation_text):
     """
     Парсит структурированный ответ от модели и возвращает список вариантов перевода
-    с их комментариями и примерами использования.
+    с их пояснениями, подробностями и примерами использования.
     """
     if not translation_text:
         return []
@@ -952,9 +919,10 @@ def parse_translation_variants(translation_text):
     # Регулярное выражение для поиска разметки
     import re
     
-    # Ищем варианты переводов
+    # Ищем варианты переводов с новой структурой
     variant_pattern = re.compile(r'```вариант-(\d+)\n(.*?)```', re.DOTALL)
-    comment_pattern = re.compile(r'```комментарий-(\d+)\n(.*?)```', re.DOTALL)
+    explanation_pattern = re.compile(r'```пояснение-(\d+)\n(.*?)```', re.DOTALL)
+    details_pattern = re.compile(r'```подробности-(\d+)\n(.*?)```', re.DOTALL)
     examples_pattern = re.compile(r'```примеры-(\d+)\n(.*?)```', re.DOTALL)
     
     # Ищем все варианты перевода
@@ -964,8 +932,9 @@ def parse_translation_variants(translation_text):
     if not variant_matches:
         return []
     
-    # Получаем все комментарии и примеры
-    comment_matches = {num: text.strip() for num, text in comment_pattern.findall(translation_text)}
+    # Получаем все пояснения, подробности и примеры
+    explanation_matches = {num: text.strip() for num, text in explanation_pattern.findall(translation_text)}
+    details_matches = {num: text.strip() for num, text in details_pattern.findall(translation_text)}
     examples_matches = {num: text.strip() for num, text in examples_pattern.findall(translation_text)}
     
     # Формируем структуру данных с вариантами
@@ -973,7 +942,8 @@ def parse_translation_variants(translation_text):
         variant = {
             "number": num,
             "text": text.strip(),
-            "comment": comment_matches.get(num, ""),
+            "explanation": explanation_matches.get(num, ""),
+            "details": details_matches.get(num, ""),
             "examples": examples_matches.get(num, "")
         }
         variants.append(variant)
@@ -981,206 +951,146 @@ def parse_translation_variants(translation_text):
     return variants
 
 # Функция для отображения структурированного перевода с вариантами
-def display_structured_translation(variants, direction="ru_to_es"):
+def display_structured_translation(variants, direction="es_to_ru"):
     """
-    Отображает структурированный перевод с разными вариантами, комментариями 
-    и примерами использования.
+    Отображает структурированный перевод с разными вариантами, пояснениями, 
+    подробностями и примерами использования с возможностью разворачивания.
     
     Parameters:
-        variants: список вариантов перевода с комментариями и примерами
-        direction: направление перевода ("ru_to_es" или "es_to_ru")
-        
-    Формат примеров должен быть одинаковым для обоих направлений:
-    - Для каждого примера должна быть пара "пример - перевод"
-    - Примеры и переводы чередуются построчно
-    - Целевое слово/фраза в примерах выделяется жирным шрифтом (**слово**)
+        variants: список вариантов перевода
+        direction: направление перевода ("es_to_ru" или "ru_to_es")
     """
-    st.subheader("Варианты перевода:")
+    # Добавляем CSS стили для красивого отображения вариантов перевода
+    st.markdown("""
+    <style>
+    .variant-item {
+        border: 1px solid #e0e0e0;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    .variant-item:hover {
+        background-color: #f5f5f5;
+    }
+    .variant-translation {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+    .variant-explanation {
+        color: #666;
+        font-size: 0.9rem;
+        margin-top: 5px;
+    }
+    .example-block {
+        margin-bottom: 10px;
+    }
+    .example-sentence {
+        margin-bottom: 4px;
+    }
+    .example-translation {
+        color: #666;
+        font-style: italic;
+        margin-bottom: 8px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
-    for variant_idx, variant in enumerate(variants):
-        # Создаем контейнер для каждого варианта
-        variant_container = st.container()
+    # Отображаем список вариантов перевода
+    for i, variant in enumerate(variants):
+        # Создаем уникальный ключ для каждого варианта
+        variant_key = f"variant_{variant['number']}_{i}"
         
-        with variant_container:
-            # Карточка для варианта перевода
-            st.markdown("""
-            <style>
-            .variant-card {
-                border: 1px solid #e0e0e0;
-                border-radius: 5px;
-                padding: 15px;
-                margin-bottom: 10px;
-            }
-            .variant-translation {
-                font-size: 1.2rem;
-                font-weight: bold;
-                margin-bottom: 10px;
-            }
-            .variant-comment {
-                margin-bottom: 10px;
-                border-left: 3px solid #4CAF50;
-                padding-left: 10px;
-                font-style: italic;
-            }
+        # Отображаем основной вариант перевода и краткое пояснение
+        expander = st.expander(
+            label=f"{variant['text']} ({variant['explanation']})",
+            expanded=False
+        )
+        
+        # При разворачивании показываем подробную информацию
+        with expander:
+            # Подробное описание
+            if variant['details']:
+                st.markdown("##### Подробнее")
+                st.markdown(variant['details'])
             
-            .variant-examples {
-                border-left: 3px solid #2196F3;
-                padding-left: 10px;
-            }
-            
-            /* Стили для примеров предложений */
-            .example-block {
-                margin-bottom: 15px; /* Отступ между блоками пример-перевод */
-            }
-            
-            .example-sentence {
-                margin-bottom: 4px; /* Маленький отступ между предложением и его переводом */
-            }
-            
-            .example-translation {
-                color: #666; /* Бледный цвет для перевода */
-                font-style: italic; /* Курсив для перевода */
-                margin-bottom: 0; /* Нет отступа снизу для перевода */
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            
-            # Заголовок с номером варианта (только заголовок, без кнопок)
-            st.markdown(f"**Вариант {int(variant['number'])}**")
-            
-            # Отображаем вариант перевода через st.markdown для обработки жирного шрифта
-            st.markdown(f"<div class='variant-translation'>{variant['text']}</div>", unsafe_allow_html=True)
-            
-            # Отображаем комментарий через st.markdown
-            st.markdown(f"<div class='variant-comment'>{variant['comment']}</div>", unsafe_allow_html=True)
-            
-            # Отображаем примеры с улучшенным форматированием
-            st.markdown("<div class='variant-examples'>", unsafe_allow_html=True)
-            
-            # Обрабатываем примеры, разделяя их на предложения и переводы
-            example_lines = variant['examples'].strip().split('\n')
-            
-            # Удаляем пустые строки и убираем маркеры списка
-            example_lines = [line[2:] if line.startswith('- ') else line for line in example_lines if line.strip()]
-            
-            # Разная обработка для ru_to_es и es_to_ru
-            if direction == "ru_to_es":
-                # Для ru_to_es используем тот же алгоритм, что и для es_to_ru - парное отображение: пример-перевод
+            # Примеры использования
+            if variant['examples']:
+                st.markdown("##### Примеры использования")
+                
+                # Обрабатываем примеры, разделяя их на предложения и переводы
+                example_lines = variant['examples'].strip().split('\n')
+                
+                # Удаляем пустые строки и убираем маркеры списка
+                example_lines = [line[2:] if line.startswith('- ') else line for line in example_lines if line.strip()]
+                
+                # Отображаем примеры попарно (предложение + перевод)
                 i = 0
                 while i < len(example_lines):
                     if i + 1 < len(example_lines):
                         example = example_lines[i]
                         translation = example_lines[i + 1]
-                        
-                        # Блок примера
-                        st.write("<div class='example-block'>", unsafe_allow_html=True)
-                        
-                        # Используем markdown для примера на испанском, чтобы сохранить жирное выделение
-                        st.markdown(example)
-                        
-                        # Используем HTML для стилизации перевода на русский
-                        st.markdown(f"<div class='example-translation'>{translation}</div>", unsafe_allow_html=True)
-                        
-                        # Завершаем блок примера
-                        st.write("</div>", unsafe_allow_html=True)
-                        
-                        # Переходим к следующей паре
-                        i += 2
-                    else:
-                        # Если осталась одна строка без пары
-                        st.markdown(example_lines[i])
-                        i += 1
-            else:
-                # Для es_to_ru формат: пример-перевод, пример-перевод...
-                i = 0
-                while i < len(example_lines):
-                    if i + 1 < len(example_lines):
-                        example = example_lines[i]
-                        translation = example_lines[i + 1]
-                        
-                        # Блок примера
-                        st.write("<div class='example-block'>", unsafe_allow_html=True)
                         
                         # Используем markdown для примера на испанском
                         st.markdown(example)
                         
-                        # Используем HTML для стилизации перевода на русский
+                        # Стилизованный перевод на русский
                         st.markdown(f"<div class='example-translation'>{translation}</div>", unsafe_allow_html=True)
                         
-                        # Завершаем блок примера
-                        st.write("</div>", unsafe_allow_html=True)
-                        
-                        # Переходим к следующей паре
                         i += 2
                     else:
                         # Если осталась одна строка без пары
                         st.markdown(example_lines[i])
                         i += 1
             
-            st.markdown("</div>", unsafe_allow_html=True)
+            # Добавляем кнопки для копирования и озвучивания
+            cols = st.columns([7, 1, 1])
+            with cols[1]:
+                copy_key = f"copy_{variant_key}"
+                st.button("📋", key=copy_key, help="Копировать этот вариант", on_click=None)
             
-            # Для направления русский-испанский отображаем кнопки копирования и озвучивания
-            if direction == "ru_to_es":
-                # Блок с кнопками управления ПОД результатом
-                action_cols = st.columns([7, 1, 1])
-                
-                # Оставляем первую колонку пустой для выравнивания
-                with action_cols[0]:
-                    st.write("")
-                    
-                with action_cols[1]:
-                    # Кнопка для копирования только текста перевода (без комментариев и примеров)
-                    # Используем уникальный ключ, комбинируя номер варианта и индекс
-                    unique_key = f"copy_variant_{variant['number']}_{variant_idx}"
-                    st.button("📋", key=unique_key, help="Копировать этот вариант")
-                    
-                with action_cols[2]:
-                    # Кнопка для озвучивания только текста перевода
-                    # Также используем уникальный ключ
-                    speak_key = f"speak_variant_{variant['number']}_{variant_idx}"
-                    if st.button("🔊", key=speak_key, help="Озвучить этот вариант"):
-                        text_to_speech(variant['text'])
+            with cols[2]:
+                speak_key = f"speak_{variant_key}" 
+                if st.button("🔊", key=speak_key, help="Озвучить этот вариант"):
+                    text_to_speech(variant['text'])
     
-    # Для поддержки копирования вариантов перевода из вариантов - только для ru_to_es
-    if direction == "ru_to_es":
-        st.markdown("""
-        <script>
-        // Дополнительные обработчики для копирования вариантов
-        document.addEventListener('DOMContentLoaded', function() {
-            // Находим все кнопки копирования вариантов
-            const variantCopyButtons = document.querySelectorAll('button[data-testid*="stButton"]:has(div:contains("📋"))');
-            variantCopyButtons.forEach(button => {
-                const buttonId = button.getAttribute('data-testid');
-                if (buttonId && buttonId.includes('copy_variant_')) {
-                    button.addEventListener('click', function() {
-                        // Находим ближайший контейнер с переводом
-                        const translationElement = this.closest('.row-widget').parentElement.previousElementSibling.querySelector('.variant-translation');
-                        if (translationElement) {
-                            const text = translationElement.innerText || translationElement.textContent;
-                            navigator.clipboard.writeText(text)
-                                .then(() => {
-                                    Toastify({
-                                        text: "Вариант скопирован!",
-                                        duration: 2000,
-                                        close: false,
-                                        gravity: "bottom",
-                                        position: "center",
-                                        stopOnFocus: true,
-                                        style: {
-                                            background: "linear-gradient(to right, #00b09b, #96c93d)",
-                                        }
-                                    }).showToast();
-                                })
-                                .catch(err => {
-                                    console.error("Ошибка при копировании: ", err);
-                                });
+    # JavaScript для копирования текста
+    st.markdown("""
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Находим все кнопки копирования вариантов
+        const copyButtons = document.querySelectorAll('button[data-testid*="copy_variant_"]');
+        copyButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Ищем ближайший текст варианта
+                const variantText = this.closest('.streamlit-expanderContent')
+                    .previousElementSibling
+                    .querySelector('.streamlit-expanderHeader-text')
+                    .textContent.split(' (')[0];
+                
+                navigator.clipboard.writeText(variantText)
+                    .then(() => {
+                        Toastify({
+                            text: "Вариант скопирован!",
+                            duration: 2000,
+                            close: false,
+                            gravity: "bottom",
+                            position: "center",
+                            stopOnFocus: true,
+                            style: {
+                                background: "linear-gradient(to right, #00b09b, #96c93d)",
                             }
-                        });
-                    }
-                });
+                        }).showToast();
+                    })
+                    .catch(err => {
+                        console.error("Ошибка при копировании: ", err);
+                    });
             });
-        </script>
-        """, unsafe_allow_html=True)
+        });
+    });
+    </script>
+    """, unsafe_allow_html=True)
 
 # Функция для отображения экрана перевода фото/скриншота
 def display_photo_translation():
@@ -1314,20 +1224,12 @@ def display_settings():
     
     st.info("Системные промпты хранятся в отдельных файлах и могут быть отредактированы напрямую или через это приложение.")
     
-    with st.expander("Перевод с испанского на русский (один вариант)"):
-        es_to_ru_one_option_prompt = st.text_area(
-            "Системный промпт для перевода с испанского на русский (один вариант):", 
-            st.session_state.system_prompts["es_to_ru_one_option"],
-            height=100,
+    with st.expander("Перевод с испанского на русский"):
+        es_to_ru_prompt = st.text_area(
+            "Системный промпт для перевода с испанского на русский:", 
+            st.session_state.system_prompts["es_to_ru"],
+            height=300,
             key="es_to_ru_prompt"
-        )
-    
-    with st.expander("Перевод с испанского на русский (несколько вариантов)"):
-        es_to_ru_several_options_prompt = st.text_area(
-            "Системный промпт для перевода с испанского на русский (несколько вариантов):", 
-            st.session_state.system_prompts["es_to_ru_several_options"],
-            height=200,
-            key="es_to_ru_several_options_prompt"
         )
     
     with st.expander("Перевод с русского на испанский (один вариант)"):
@@ -1357,33 +1259,25 @@ def display_settings():
     # Сохранение системных промптов
     if st.button("Сохранить системные промпты"):
         # Сохраняем промпты в файлы
-        success_es_to_ru_one = save_prompt_to_file(PROMPT_FILES["es_to_ru_one_option"], es_to_ru_one_option_prompt)
-        success_es_to_ru_several = save_prompt_to_file(PROMPT_FILES["es_to_ru_several_options"], es_to_ru_several_options_prompt)
+        success_es_to_ru = save_prompt_to_file(PROMPT_FILES["es_to_ru"], es_to_ru_prompt)
         success_ru_to_es_one = save_prompt_to_file(PROMPT_FILES["ru_to_es_one_option"], ru_to_es_one_option_prompt)
         success_ru_to_es_several = save_prompt_to_file(PROMPT_FILES["ru_to_es_several_options"], ru_to_es_several_options_prompt)
         success_photo = save_prompt_to_file(PROMPT_FILES["photo_translation"], photo_translation_prompt)
         
-        if success_es_to_ru_one and success_es_to_ru_several and success_ru_to_es_one and success_ru_to_es_several and success_photo:
+        if success_es_to_ru and success_ru_to_es_one and success_ru_to_es_several and success_photo:
             # Обновляем промпты в session_state
-            st.session_state.system_prompts["es_to_ru_one_option"] = es_to_ru_one_option_prompt
-            st.session_state.system_prompts["es_to_ru_several_options"] = es_to_ru_several_options_prompt
+            st.session_state.system_prompts["es_to_ru"] = es_to_ru_prompt
             st.session_state.system_prompts["ru_to_es_one_option"] = ru_to_es_one_option_prompt
             st.session_state.system_prompts["ru_to_es_several_options"] = ru_to_es_several_options_prompt
             st.session_state.system_prompts["photo_translation"] = photo_translation_prompt
             
             # Обновляем текущие промпты на основе выбранного режима
-            if st.session_state.es_to_ru_use_multiple_variants:
-                st.session_state.system_prompts["es_to_ru"] = st.session_state.system_prompts["es_to_ru_several_options"]
-            else:
-                st.session_state.system_prompts["es_to_ru"] = st.session_state.system_prompts["es_to_ru_one_option"]
-                
             if st.session_state.use_multiple_variants:
                 st.session_state.system_prompts["ru_to_es"] = st.session_state.system_prompts["ru_to_es_several_options"]
             else:
                 st.session_state.system_prompts["ru_to_es"] = st.session_state.system_prompts["ru_to_es_one_option"]
-                
+            
             # Обновляем основные промптные файлы
-            save_prompt_to_file(PROMPT_FILES["es_to_ru"], st.session_state.system_prompts["es_to_ru"])
             save_prompt_to_file(PROMPT_FILES["ru_to_es"], st.session_state.system_prompts["ru_to_es"])
             
             st.success("Системные промпты сохранены в файлы и применены в приложении!")
@@ -1396,9 +1290,7 @@ def display_settings():
     # Отображение отладочной информации о текущих настройках
     if show_debug:
         debug_info = {
-            "es_to_ru_use_multiple_variants": st.session_state.es_to_ru_use_multiple_variants,
             "use_multiple_variants": st.session_state.use_multiple_variants,
-            "current_es_to_ru_prompt_type": "several_options" if st.session_state.es_to_ru_use_multiple_variants else "one_option",
             "current_ru_to_es_prompt_type": "several_options" if st.session_state.use_multiple_variants else "one_option",
             "prompt_files": PROMPT_FILES,
             "prompt_file_lengths": {
@@ -1444,17 +1336,6 @@ def main():
         
         return
     
-    # Синхронизируем промпты в зависимости от настроек галочек
-    if st.session_state.es_to_ru_use_multiple_variants and "es_to_ru_several_options" in st.session_state.system_prompts:
-        st.session_state.system_prompts["es_to_ru"] = st.session_state.system_prompts["es_to_ru_several_options"]
-    elif "es_to_ru_one_option" in st.session_state.system_prompts:
-        st.session_state.system_prompts["es_to_ru"] = st.session_state.system_prompts["es_to_ru_one_option"]
-        
-    if st.session_state.use_multiple_variants and "ru_to_es_several_options" in st.session_state.system_prompts:
-        st.session_state.system_prompts["ru_to_es"] = st.session_state.system_prompts["ru_to_es_several_options"]
-    elif "ru_to_es_one_option" in st.session_state.system_prompts:
-        st.session_state.system_prompts["ru_to_es"] = st.session_state.system_prompts["ru_to_es_one_option"]
-    
     # Добавляем стандартное боковое меню для выбора режима
     with st.sidebar:
         st.title("AI Переводчик")
@@ -1462,18 +1343,18 @@ def main():
         # Создаем вкладки для выбора режима
         mode = st.radio(
             "Выберите режим:",
-            ["🇪🇸 → 🇷🇺 Испанский → Русский", 
-             "🇷🇺 → 🇪🇸 Русский → Испанский", 
-             "📷 Перевод фото",
+            ["🇪🇸 → 🇷🇺", 
+             "🇷🇺 → 🇪🇸", 
+             "📷 Фото",
              "⚙️ Настройки"]
         )
         
         # Устанавливаем текущий экран в зависимости от выбора
-        if mode == "🇪🇸 → 🇷🇺 Испанский → Русский":
+        if mode == "🇪🇸 → 🇷🇺":
             st.session_state.current_screen = "es_to_ru"
-        elif mode == "🇷🇺 → 🇪🇸 Русский → Испанский":
+        elif mode == "🇷🇺 → 🇪🇸":
             st.session_state.current_screen = "ru_to_es"
-        elif mode == "📷 Перевод фото":
+        elif mode == "📷 Фото":
             st.session_state.current_screen = "photo"
         elif mode == "⚙️ Настройки":
             st.session_state.current_screen = "settings"
