@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # Базовые стили без скрытия элементов Streamlit
-st.markdown("""
+st.markdown('''
 <style>
 /* Убираем стандартные элементы управления Streamlit в правом верхнем углу */
 #MainMenu {visibility: hidden !important;}
@@ -123,8 +123,35 @@ div[data-testid="stHorizontalBlock"] {
     z-index: 1000;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
+
+/* Стили для кнопок-ссылок */
+button[data-testid*="more_variant_"], button[data-testid*="hide_variant_"] {
+    background: none !important;
+    color: #888 !important;
+    border: none !important;
+    padding: 0 !important;
+    font-size: 0.8rem !important;
+    text-decoration: underline !important;
+    cursor: pointer !important;
+    width: auto !important;
+    height: auto !important;
+    text-align: right !important;
+    float: right !important;
+    box-shadow: none !important;
+    margin-bottom: 10px !important;
+}
+button[data-testid*="more_variant_"]:hover, button[data-testid*="hide_variant_"]:hover {
+    color: #555 !important;
+    background: none !important;
+}
+/* Скрываем тень при наведении и фокусе */
+button[data-testid*="more_variant_"]:focus, button[data-testid*="hide_variant_"]:focus,
+button[data-testid*="more_variant_"]:active, button[data-testid*="hide_variant_"]:active {
+    box-shadow: none !important;
+    outline: none !important;
+}
 </style>
-""", unsafe_allow_html=True)
+''', unsafe_allow_html=True)
 
 # Добавляем библиотеку Toastify для уведомлений
 st.markdown("""
@@ -1024,7 +1051,7 @@ def parse_translation_variants(translation_text):
 def display_structured_translation(variants, direction="es_to_ru"):
     """
     Отображает структурированный перевод с разными вариантами и пояснениями.
-    Подробности и примеры подгружаются только при нажатии на кнопку "Подробнее".
+    Кнопка "Ещё" показывает дополнительную информацию прямо под вариантом.
     
     Parameters:
         variants: список вариантов перевода
@@ -1036,203 +1063,272 @@ def display_structured_translation(variants, direction="es_to_ru"):
     .variant-item {
         border: 1px solid #e0e0e0;
         border-radius: 5px;
-        padding: 15px;
+        padding: 10px;
         margin-bottom: 10px;
         background-color: #f9f9f9;
     }
     .variant-translation {
         font-size: 1.2rem;
         font-weight: bold;
-        margin-bottom: 8px;
+        margin-bottom: 5px;
     }
     .variant-explanation {
         color: #666;
         font-size: 0.9rem;
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
-    .example-block {
-        margin-bottom: 10px;
-    }
-    .example-sentence {
-        margin-bottom: 4px;
+    .details-container {
+        border-left: 2px solid #ddd;
+        padding-left: 10px;
+        margin: 5px 0;
     }
     .example-translation {
         color: #666;
         font-style: italic;
-        margin-bottom: 8px;
+        margin-bottom: 5px;
+    }
+    
+    /* Стили для кнопки "Ещё" */
+    .more-btn {
+        margin-top: 5px !important;
+        margin-bottom: 5px !important;
+        padding: 0.25rem !important;
+        height: auto !important;
+        background-color: #f0f2f6 !important;
+        color: #444 !important;
+        border: none !important;
+        border-radius: 4px !important;
+        font-size: 0.8rem !important;
+    }
+    
+    .more-btn:hover {
+        background-color: #e0e2e6 !important;
+        color: #222 !important;
+    }
+    
+    /* Стили для мобильных устройств */
+    @media only screen and (max-width: 768px) {
+        .more-btn {
+            width: 100% !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
     
-    # Инициализация ключа выбранного варианта в session_state, если его нет
-    selected_key = f"selected_variant_{direction}"
-    if selected_key not in st.session_state:
-        st.session_state[selected_key] = None
-    
     # Отображаем заголовок
     st.markdown(f"### Варианты перевода ({len(variants)})")
     
-    # Отображаем список вариантов перевода
+    # Инициализируем session_state для отслеживания показанных вариантов
+    if 'shown_details' not in st.session_state:
+        st.session_state.shown_details = {}
+    
+    # Отображаем каждый вариант перевода в виде карточки
     for i, variant in enumerate(variants):
         # Создаем уникальный ключ для каждого варианта
         variant_key = f"variant_{variant['number']}_{i}"
         
-        # Создаем контейнер для каждого варианта
-        st.markdown(f"""
-        <div class="variant-item">
-            <div class="variant-translation">{variant['text']}</div>
-            <div class="variant-explanation">{variant['explanation']}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        # Создаем контейнер для варианта перевода
+        variant_container = st.container()
         
-        # Кнопки действий для этого варианта
-        cols = st.columns([3, 3, 1, 1])
-        
-        # Кнопка "Подробнее" (только для испанско-русского направления)
-        if direction == "es_to_ru":
-            with cols[0]:
-                details_btn_key = f"details_{variant_key}"
-                if st.button("🔍 Подробнее", key=details_btn_key):
-                    st.session_state[selected_key] = variant_key
-        
-        # Кнопки для русско-испанского направления
-        if direction == "ru_to_es":
-            with cols[2]:
-                copy_key = f"copy_{variant_key}"
-                st.button("📋", key=copy_key, help="Копировать этот вариант")
+        with variant_container:
+            # Отображаем вариант перевода и его краткое пояснение
+            st.markdown(f"""
+            <div class="variant-item">
+                <div class="variant-translation">{variant['text']}</div>
+                <div class="variant-explanation">{variant['explanation']}</div>
+            """, unsafe_allow_html=True)
             
-            with cols[3]:
-                speak_key = f"speak_{variant_key}" 
-                if st.button("🔊", key=speak_key, help="Озвучить этот вариант"):
-                    text_to_speech(variant['text'])
-    
-    # Если выбран вариант для отображения подробностей
-    if st.session_state[selected_key] is not None:
-        # Находим выбранный вариант
-        selected_variant_key = st.session_state[selected_key]
-        
-        # Извлекаем номер варианта из ключа
-        selected_index = None
-        for i, variant in enumerate(variants):
-            if f"variant_{variant['number']}_{i}" == selected_variant_key:
-                selected_index = i
-                break
-        
-        if selected_index is not None:
-            selected_variant = variants[selected_index]
-            
-            # Создаем контейнер для подробной информации
-            details_container = st.container()
-            
-            with details_container:
-                st.markdown("---")
-                st.markdown(f"### Подробная информация о варианте \"{selected_variant['text']}\"")
-                
-                # Проверяем, загружены ли уже подробности
-                if not selected_variant.get('details_loaded', False):
-                    with st.spinner("Загружаем дополнительную информацию..."):
-                        details, examples, debug_info = get_translation_details(
-                            selected_variant['text'], 
-                            selected_variant['explanation']
-                        )
+            # Для испанско-русского направления добавляем возможность загрузки дополнительной информации
+            if direction == "es_to_ru":
+                # Проверяем, показаны ли уже детали для этого варианта
+                if variant_key in st.session_state.shown_details:
+                    # Если детали уже загружены, показываем их
+                    details = st.session_state.shown_details[variant_key].get('details', '')
+                    examples = st.session_state.shown_details[variant_key].get('examples', '')
+                    
+                    # Отображаем контейнер с деталями
+                    st.markdown('<div class="details-container">', unsafe_allow_html=True)
+                    
+                    # Отображаем подробности, если они есть
+                    if details:
+                        st.markdown("#### Подробная информация")
+                        st.markdown(details)
+                    
+                    # Отображаем примеры использования, если они есть
+                    if examples:
+                        st.markdown("#### Примеры использования")
                         
-                        # Сохраняем полученные данные в вариант
-                        if 'details' not in selected_variant:
-                            selected_variant['details'] = ''
-                        if 'examples' not in selected_variant:
-                            selected_variant['examples'] = ''
+                        # Обрабатываем примеры, разделяя их на предложения и переводы
+                        example_lines = examples.strip().split('\n')
                         
-                        selected_variant['details'] = details
-                        selected_variant['examples'] = examples
-                        selected_variant['details_loaded'] = True
-                        selected_variant['details_debug_info'] = debug_info
-                
-                # Отображаем подробности
-                if selected_variant.get('details', ''):
-                    st.markdown("#### Подробнее")
-                    st.markdown(selected_variant['details'])
-                
-                # Отображаем примеры использования
-                if selected_variant.get('examples', ''):
-                    st.markdown("#### Примеры использования")
+                        # Удаляем пустые строки и убираем маркеры списка
+                        example_lines = [line[2:] if line.startswith('- ') else line for line in example_lines if line.strip()]
+                        
+                        # Отображаем примеры попарно (предложение + перевод)
+                        example_index = 0
+                        while example_index < len(example_lines):
+                            if example_index + 1 < len(example_lines):
+                                example = example_lines[example_index]
+                                translation = example_lines[example_index + 1]
+                                
+                                # Используем markdown для примера на испанском
+                                st.markdown(example)
+                                
+                                # Стилизованный перевод на русский
+                                st.markdown(f"<div class='example-translation'>{translation}</div>", unsafe_allow_html=True)
+                                
+                                example_index += 2
+                            else:
+                                # Если осталась одна строка без пары
+                                st.markdown(example_lines[example_index])
+                                example_index += 1
                     
-                    # Обрабатываем примеры, разделяя их на предложения и переводы
-                    example_lines = selected_variant['examples'].strip().split('\n')
+                    # Закрываем контейнер деталей
+                    st.markdown('</div>', unsafe_allow_html=True)
                     
-                    # Удаляем пустые строки и убираем маркеры списка
-                    example_lines = [line[2:] if line.startswith('- ') else line for line in example_lines if line.strip()]
+                    # Кнопка для скрытия информации
+                    if st.button("Скрыть", key=f"hide_{variant_key}", help="Скрыть дополнительную информацию", use_container_width=True, 
+                                type="secondary", args=None, kwargs=None, disabled=False):
+                        # Удаляем вариант из показанных деталей
+                        del st.session_state.shown_details[variant_key]
+                        st.rerun()
+                else:
+                    # Если детали не загружены, показываем кнопку "Ещё"
+                    more_key = f"more_{variant_key}"
                     
-                    # Отображаем примеры попарно (предложение + перевод)
-                    i = 0
-                    while i < len(example_lines):
-                        if i + 1 < len(example_lines):
-                            example = example_lines[i]
-                            translation = example_lines[i + 1]
+                    # Добавляем полноценную кнопку "Ещё"
+                    if st.button("Ещё", key=more_key, help="Показать дополнительную информацию", use_container_width=True, 
+                                type="secondary", args=None, kwargs=None, disabled=False):
+                        with st.spinner("Загрузка дополнительной информации..."):
+                            # Запрашиваем детали и примеры
+                            details, examples, debug_info = get_translation_details(
+                                variant['text'], 
+                                variant['explanation']
+                            )
                             
-                            # Используем markdown для примера на испанском
-                            st.markdown(example)
+                            # Сохраняем данные в session_state
+                            st.session_state.shown_details[variant_key] = {
+                                'details': details,
+                                'examples': examples,
+                                'debug_info': debug_info
+                            }
                             
-                            # Стилизованный перевод на русский
-                            st.markdown(f"<div class='example-translation'>{translation}</div>", unsafe_allow_html=True)
-                            
-                            i += 2
-                        else:
-                            # Если осталась одна строка без пары
-                            st.markdown(example_lines[i])
-                            i += 1
+                            # Перезагружаем страницу для отображения деталей
+                            st.rerun()
+            
+            # Для русско-испанского направления добавляем кнопки копирования и озвучивания
+            if direction == "ru_to_es":
+                cols = st.columns([5, 1, 1])
+                with cols[1]:
+                    # Создаем уникальный ключ для кнопки копирования
+                    copy_key = f"copy_{variant_key}"
+                    st.button("📋", key=copy_key, help="Копировать этот вариант")
                 
-                # Кнопка "Вернуться к списку вариантов"
-                if st.button("← Вернуться к списку вариантов", key="back_to_variants"):
-                    st.session_state[selected_key] = None
-                    st.rerun()
-    
-    # Отладочная информация для проверки работы механизма
-    if st.checkbox("Показать состояние загрузки данных", key=f"debug_loaded_state_{direction}"):
-        data_state = {}
-        for i, variant in enumerate(variants):
-            data_state[f"Вариант {i+1} ({variant['text']})"] = {
-                "details_loaded": variant.get('details_loaded', False),
-                "details_length": len(variant.get('details', '')),
-                "examples_length": len(variant.get('examples', ''))
-            }
-        st.write("Состояние загрузки дополнительной информации:")
-        st.json(data_state)
+                with cols[2]:
+                    # Создаем уникальный ключ для кнопки озвучивания
+                    speak_key = f"speak_{variant_key}" 
+                    if st.button("🔊", key=speak_key, help="Озвучить этот вариант"):
+                        text_to_speech(variant['text'])
+            
+            # Закрываем div варианта
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Добавляем горизонтальную линию, кроме последнего элемента
+            if i < len(variants) - 1:
+                st.markdown('<hr style="margin: 10px 0; border: 0; height: 1px; background-color: #e0e0e0;">', unsafe_allow_html=True)
     
     # JavaScript для копирования текста только для русско-испанского направления
     if direction == "ru_to_es":
         st.markdown("""
         <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Находим все кнопки копирования вариантов
-            const copyButtons = document.querySelectorAll('button[data-testid*="copy_variant_"]');
-            copyButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    // Ищем ближайший текст варианта
-                    const variantItem = this.closest('.row-widget').parentElement.previousElementSibling;
-                    const variantText = variantItem.querySelector('.variant-translation').textContent;
-                    
-                    navigator.clipboard.writeText(variantText)
-                        .then(() => {
-                            Toastify({
-                                text: "Вариант скопирован!",
-                                duration: 2000,
-                                close: false,
-                                gravity: "bottom",
-                                position: "center",
-                                stopOnFocus: true,
-                                style: {
-                                    background: "linear-gradient(to right, #00b09b, #96c93d)",
+            // Функция для настройки всех кнопок копирования
+            function setupCopyButtons() {
+                // Находим все кнопки копирования
+                const copyButtons = document.querySelectorAll('button[data-testid*="copy_variant_"]');
+                copyButtons.forEach(button => {
+                    if (!button.hasAttribute('data-copy-listener')) {
+                        button.setAttribute('data-copy-listener', 'true');
+                        button.addEventListener('click', function() {
+                            // Находим родительский контейнер варианта
+                            const variantContainer = this.closest('.variant-item');
+                            if (variantContainer) {
+                                // Находим элемент с переводом
+                                const translationElement = variantContainer.querySelector('.variant-translation');
+                                if (translationElement) {
+                                    const text = translationElement.textContent.trim();
+                                    
+                                    navigator.clipboard.writeText(text)
+                                        .then(() => {
+                                            Toastify({
+                                                text: "Вариант скопирован!",
+                                                duration: 2000,
+                                                close: false,
+                                                gravity: "bottom",
+                                                position: "center",
+                                                stopOnFocus: true,
+                                                style: {
+                                                    background: "linear-gradient(to right, #00b09b, #96c93d)",
+                                                }
+                                            }).showToast();
+                                        })
+                                        .catch(err => {
+                                            console.error("Ошибка при копировании: ", err);
+                                        });
                                 }
-                            }).showToast();
-                        })
-                        .catch(err => {
-                            console.error("Ошибка при копировании: ", err);
+                            }
                         });
+                    }
+                });
+            }
+            
+            // Запускаем настройку кнопок при загрузке страницы
+            setupCopyButtons();
+            
+            // Настраиваем MutationObserver для отслеживания добавления новых кнопок
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.addedNodes.length) {
+                        setupCopyButtons();
+                    }
                 });
             });
+            
+            // Наблюдаем за всеми изменениями в DOM
+            observer.observe(document.body, { childList: true, subtree: true });
         });
         </script>
         """, unsafe_allow_html=True)
+        
+    # Применяем CSS для кнопок "Ещё"
+    st.markdown("""
+    <style>
+    /* Стилизуем все кнопки "Ещё" */
+    button[data-testid*="more_variant_"] {
+        margin-top: 5px !important;
+        margin-bottom: 5px !important;
+        padding: 0.25rem !important;
+        height: auto !important;
+        background-color: #f0f2f6 !important;
+        color: #444 !important;
+        border: none !important;
+        border-radius: 4px !important;
+        font-size: 0.8rem !important;
+    }
+    
+    button[data-testid*="more_variant_"]:hover {
+        background-color: #e0e2e6 !important;
+        color: #222 !important;
+    }
+    
+    /* Для мобильных устройств кнопка на полную ширину */
+    @media only screen and (max-width: 768px) {
+        button[data-testid*="more_variant_"], button[data-testid*="hide_variant_"] {
+            width: 100% !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # Функция для отображения экрана перевода фото/скриншота
 def display_photo_translation():
